@@ -1,0 +1,686 @@
+<title>Ashford — Árbol de producto</title>
+<style>
+  :root {
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+    --ground: #eef2f3;
+    --panel: #ffffff;
+    --panel-2: #f6f9fa;
+    --canvas-bg: #f8fafb;
+    --ink: #101a1e;
+    --ink-2: #46585f;
+    --ink-3: #7a8b93;
+    --rule: #d3dee1;
+    --rule-2: #e5edef;
+
+    --fg: #b8460f;         /* producto final */
+    --made: #0f766e;       /* componente fabricado */
+    --bought: #8896a2;     /* comprado */
+    --fg-soft: #f5e2d8;
+    --made-soft: #d8ebe8;
+    --bought-soft: #e3e9ec;
+
+    --edge: #b3c2c7;
+    --edge-hot: #0f766e;
+    --focus: #0f766e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #080d0f;
+      --panel: #101a1d;
+      --panel-2: #162226;
+      --canvas-bg: #0b1315;
+      --ink: #e2ecef;
+      --ink-2: #9fb3ba;
+      --ink-3: #6c8189;
+      --rule: #213238;
+      --rule-2: #1a282d;
+
+      --fg: #e8763c;
+      --made: #3fb5a6;
+      --bought: #7d8f9a;
+      --fg-soft: #33200f;
+      --made-soft: #0e2d2b;
+      --bought-soft: #1b262a;
+
+      --edge: #2c4046;
+      --edge-hot: #3fb5a6;
+      --focus: #3fb5a6;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #080d0f; --panel: #101a1d; --panel-2: #162226; --canvas-bg: #0b1315;
+    --ink: #e2ecef; --ink-2: #9fb3ba; --ink-3: #6c8189; --rule: #213238; --rule-2: #1a282d;
+    --fg: #e8763c; --made: #3fb5a6; --bought: #7d8f9a;
+    --fg-soft: #33200f; --made-soft: #0e2d2b; --bought-soft: #1b262a;
+    --edge: #2c4046; --edge-hot: #3fb5a6; --focus: #3fb5a6;
+  }
+  :root[data-theme="light"] {
+    --ground: #eef2f3; --panel: #ffffff; --panel-2: #f6f9fa; --canvas-bg: #f8fafb;
+    --ink: #101a1e; --ink-2: #46585f; --ink-3: #7a8b93; --rule: #d3dee1; --rule-2: #e5edef;
+    --fg: #b8460f; --made: #0f766e; --bought: #8896a2;
+    --fg-soft: #f5e2d8; --made-soft: #d8ebe8; --bought-soft: #e3e9ec;
+    --edge: #b3c2c7; --edge-hot: #0f766e; --focus: #0f766e;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: var(--sans); font-size: 14px; line-height: 1.5;
+    height: 100vh; overflow: hidden;
+  }
+  #app { display: grid; grid-template-columns: 264px minmax(0,1fr) 268px; grid-template-rows: auto minmax(0,1fr); height: 100vh; }
+
+  /* ---------- barra superior ---------- */
+  #bar {
+    grid-column: 1 / -1; display: flex; align-items: center; gap: 22px; flex-wrap: wrap;
+    padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--rule);
+  }
+  #brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+  #brand b { font-family: var(--mono); font-size: 14px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+  #brand span { font-family: var(--mono); font-size: 11px; color: var(--ink-3); letter-spacing: .08em; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; }
+  .lg { display: flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 11px; letter-spacing: .05em; color: var(--ink-2); white-space: nowrap; }
+  .dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+  .dot.fg { background: var(--fg); }
+  .dot.made { background: var(--made); }
+  .dot.bought { background: var(--panel); border: 2px solid var(--bought); }
+  .tools { display: flex; gap: 6px; }
+
+  button, select {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--ink-2); background: var(--panel-2); border: 1px solid var(--rule);
+    border-radius: 2px; padding: 6px 11px; cursor: pointer;
+  }
+  button:hover { border-color: var(--focus); color: var(--ink); }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+  button[aria-pressed="true"] { background: var(--made-soft); border-color: var(--made); color: var(--ink); }
+
+  /* ---------- paneles laterales ---------- */
+  aside { background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
+  #left { border-right: 1px solid var(--rule); }
+  #right { border-left: 1px solid var(--rule); }
+  .sec { padding: 12px 14px; border-bottom: 1px solid var(--rule-2); }
+  .sec h2 {
+    margin: 0 0 9px; font-family: var(--mono); font-size: 10px; font-weight: 600;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--ink-3);
+  }
+  #search {
+    width: 100%; font-family: var(--mono); font-size: 12px; padding: 8px 10px;
+    color: var(--ink); background: var(--panel-2);
+    border: 1px solid var(--rule); border-radius: 2px;
+  }
+  #search::placeholder { color: var(--ink-3); }
+  .filters { display: flex; gap: 5px; margin-top: 8px; }
+  .filters button { flex: 1; padding: 5px 2px; }
+
+  #list { flex: 1; overflow-y: auto; min-height: 0; padding: 4px 0 12px; }
+  .row {
+    display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+    padding: 6px 14px; border: 0; border-left: 2px solid transparent; border-radius: 0;
+    background: none; text-transform: none; letter-spacing: .02em; font-size: 12px;
+    color: var(--ink); cursor: pointer;
+  }
+  .row:hover { background: var(--panel-2); border-left-color: var(--rule); }
+  .row[aria-current="true"] { background: var(--made-soft); border-left-color: var(--made); }
+  .row .meta { margin-left: auto; font-size: 10px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  #count { padding: 8px 14px; font-family: var(--mono); font-size: 10px; letter-spacing: .08em; color: var(--ink-3); }
+
+  /* ---------- lienzo ---------- */
+  #stage { position: relative; background: var(--canvas-bg); min-width: 0; }
+  canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+  canvas.grabbing { cursor: grabbing; }
+  canvas.on-node { cursor: pointer; }
+  #hint {
+    position: absolute; left: 14px; bottom: 12px; display: flex; gap: 14px; flex-wrap: wrap;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .06em; color: var(--ink-3);
+    pointer-events: none; text-transform: uppercase;
+  }
+  #scope {
+    position: absolute; left: 14px; top: 12px; max-width: min(460px, calc(100% - 28px));
+    font-family: var(--mono); font-size: 11px; color: var(--ink-2);
+    background: color-mix(in srgb, var(--panel) 88%, transparent);
+    border: 1px solid var(--rule); border-radius: 2px; padding: 7px 11px; pointer-events: none;
+  }
+  #scope b { color: var(--ink); font-weight: 700; }
+  #busy {
+    position: absolute; inset: 0; display: none; place-items: center;
+    background: color-mix(in srgb, var(--canvas-bg) 82%, transparent);
+    font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2);
+  }
+  #busy.on { display: grid; }
+
+  /* ---------- detalle ---------- */
+  #detail { flex: 1; overflow-y: auto; min-height: 0; }
+  #dcode { font-family: var(--mono); font-size: 17px; font-weight: 700; word-break: break-all; margin: 0 0 8px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono);
+    font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+    padding: 4px 9px; border-radius: 2px;
+  }
+  .badge.fg { background: var(--fg-soft); color: var(--fg); }
+  .badge.made { background: var(--made-soft); color: var(--made); }
+  .badge.bought { background: var(--bought-soft); color: var(--ink-2); }
+  .kv { display: grid; grid-template-columns: 1fr auto; gap: 5px 10px; font-size: 12px; }
+  .kv dt { color: var(--ink-2); }
+  .kv dd { margin: 0; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .chip {
+    font-family: var(--mono); font-size: 11px; padding: 3px 7px; border-radius: 2px;
+    background: var(--panel-2); border: 1px solid var(--rule); color: var(--ink-2);
+  }
+  .chip i { font-style: normal; color: var(--ink-3); }
+  .acts { display: flex; flex-direction: column; gap: 6px; }
+  .acts button { text-align: left; }
+  .empty { font-size: 12.5px; color: var(--ink-3); margin: 0; }
+  .note { font-size: 11.5px; color: var(--ink-3); margin: 8px 0 0; line-height: 1.45; }
+
+  @media (max-width: 1080px) {
+    body { overflow: auto; height: auto; }
+    #app { grid-template-columns: 1fr; grid-template-rows: auto auto minmax(420px, 62vh) auto; height: auto; }
+    aside { border: 0; border-top: 1px solid var(--rule); }
+    #left { order: 3; } #stage { order: 2; min-height: 420px; } #right { order: 4; }
+    #list { max-height: 300px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div id="app">
+  <header id="bar">
+    <div id="brand"><b>Ashford</b><span>árbol de producto</span></div>
+    <div class="legend">
+      <span class="lg"><i class="dot fg"></i>Producto final</span>
+      <span class="lg"><i class="dot made"></i>Fabricado en Ashford</span>
+      <span class="lg"><i class="dot bought"></i>Comprado</span>
+    </div>
+    <div class="tools">
+      <button id="btn-fit" title="Encajar el grafo en la vista">Encajar</button>
+      <button id="btn-relayout" title="Recolocar los puntos movidos">Recolocar</button>
+      <button id="btn-all" title="Dibujar los 7.176 códigos de golpe">Toda la fábrica</button>
+    </div>
+  </header>
+
+  <aside id="left">
+    <div class="sec">
+      <h2>Buscar código</h2>
+      <input id="search" type="search" placeholder="99200005400, TRM020642…" autocomplete="off" spellcheck="false" />
+      <div class="filters">
+        <button data-filter="0" aria-pressed="true">Finales</button>
+        <button data-filter="1" aria-pressed="false">Fabricados</button>
+        <button data-filter="2" aria-pressed="false">Comprados</button>
+      </div>
+    </div>
+    <div id="count"></div>
+    <div id="list" role="listbox" aria-label="Códigos de material"></div>
+  </aside>
+
+  <main id="stage">
+    <canvas id="cv"></canvas>
+    <div id="scope"></div>
+    <div id="busy">Calculando…</div>
+    <div id="hint">
+      <span>Arrastra un punto para moverlo</span>
+      <span>Arrastra el fondo para desplazar</span>
+      <span>Rueda para zoom</span>
+      <span>Clic en un punto para ver detalle</span>
+    </div>
+  </main>
+
+  <aside id="right">
+    <div class="sec"><h2>Detalle</h2></div>
+    <div id="detail"></div>
+  </aside>
+</div>
+
+<script>
+"use strict";
+const DATA = /*__DATA__*/;
+
+/* ------------------------------------------------------------------ *
+ * Modelo
+ * ------------------------------------------------------------------ */
+const CODES = DATA.codes;
+const N = CODES.length;
+const CH_OFF = DATA.ch_off, CH_IDX = DATA.ch_idx;      // hijos (componentes)
+const MACHINES = DATA.machines, MOPS = DATA.machine_ops;
+const M_OFF = DATA.mach_off, M_IDX = DATA.mach_idx;
+
+// Padres derivados de los hijos: evita duplicar 48.756 índices en el fichero.
+const PA_OFF = new Int32Array(N + 1), PA_IDX = new Int32Array(CH_IDX.length);
+{
+  const cnt = new Int32Array(N);
+  for (let i = 0; i < CH_IDX.length; i++) cnt[CH_IDX[i]]++;
+  for (let i = 0; i < N; i++) PA_OFF[i + 1] = PA_OFF[i] + cnt[i];
+  const cur = PA_OFF.slice(0, N);
+  for (let p = 0; p < N; p++)
+    for (let e = CH_OFF[p]; e < CH_OFF[p + 1]; e++) PA_IDX[cur[CH_IDX[e]]++] = p;
+}
+
+const children = i => CH_IDX.slice(CH_OFF[i], CH_OFF[i + 1]);
+const parents  = i => Array.from(PA_IDX.slice(PA_OFF[i], PA_OFF[i + 1]));
+const nCh = i => CH_OFF[i + 1] - CH_OFF[i];
+const nPa = i => PA_OFF[i + 1] - PA_OFF[i];
+const machinesOf = i => Array.from(M_IDX.slice(M_OFF[i], M_OFF[i + 1]));
+
+// 0 = producto final · 1 = fabricado y consumido · 2 = comprado.
+// "Producible" sale de la pestaña RATE: tener máquina asignada.
+const KIND = new Uint8Array(N);
+for (let i = 0; i < N; i++) {
+  const producible = M_OFF[i + 1] > M_OFF[i];
+  KIND[i] = !producible ? 2 : (nPa(i) === 0 ? 0 : 1);
+}
+const KIND_NAME = ["Producto final", "Fabricado en Ashford", "Comprado"];
+const KIND_CLASS = ["fg", "made", "bought"];
+
+/* ------------------------------------------------------------------ *
+ * Vista: subgrafo + colocación en capas
+ * ------------------------------------------------------------------ */
+const css = k => getComputedStyle(document.documentElement).getPropertyValue(k).trim();
+
+let view = { nodes: [], edges: [], pos: null, big: false, r: 8, labels: true };
+let scope = { roots: [], dir: "down", label: "" };
+let selected = -1, hovered = -1;
+
+function collect(roots, dir) {
+  const seen = new Uint8Array(N), out = [];
+  const stack = roots.slice();
+  for (const r of roots) seen[r] = 1;
+  while (stack.length) {
+    const n = stack.pop(); out.push(n);
+    const next = dir === "down" ? children(n) : parents(n);
+    for (const m of next) if (!seen[m]) { seen[m] = 1; stack.push(m); }
+  }
+  // Aristas inducidas: siempre padre -> hijo, para que las flechas bajen.
+  const edges = [];
+  for (const n of out)
+    for (const c of children(n)) if (seen[c]) edges.push([n, c]);
+  return { nodes: out, edges, inSet: seen };
+}
+
+/** Capas por camino más largo desde las raíces del subgrafo (grafo acíclico). */
+function layout(nodes, edges) {
+  const pos = new Map(), lvl = new Map(), indeg = new Map(), adj = new Map();
+  for (const n of nodes) { lvl.set(n, 0); indeg.set(n, 0); adj.set(n, []); }
+  for (const [p, c] of edges) { adj.get(p).push(c); indeg.set(c, indeg.get(c) + 1); }
+
+  const q = nodes.filter(n => indeg.get(n) === 0);
+  const deg = new Map(indeg), order = [];
+  while (q.length) {
+    const n = q.shift(); order.push(n);
+    for (const c of adj.get(n)) {
+      if (lvl.get(c) < lvl.get(n) + 1) lvl.set(c, lvl.get(n) + 1);
+      deg.set(c, deg.get(c) - 1);
+      if (deg.get(c) === 0) q.push(c);
+    }
+  }
+
+  const maxLvl = Math.max(0, ...lvl.values());
+  const bands = Array.from({ length: maxLvl + 1 }, () => []);
+  for (const n of order) bands[lvl.get(n)].push(n);
+
+  // Barrido baricéntrico para reducir cruces: cada nodo se acerca a la media
+  // de sus vecinos en la capa contigua.
+  const rank = new Map();
+  const reindex = () => bands.forEach(b => b.forEach((n, i) => rank.set(n, i)));
+  const mean = (n, dir) => {
+    const nb = (dir === "up" ? parents(n) : children(n)).filter(m => rank.has(m));
+    return nb.length ? nb.reduce((s, m) => s + rank.get(m), 0) / nb.length : rank.get(n);
+  };
+  reindex();
+  const sweeps = nodes.length > 3000 ? 1 : 4;
+  for (let s = 0; s < sweeps; s++) {
+    for (let L = 1; L <= maxLvl; L++) {
+      bands[L].sort((a, b) => mean(a, "up") - mean(b, "up")); reindex();
+    }
+    for (let L = maxLvl - 1; L >= 0; L--) {
+      bands[L].sort((a, b) => mean(a, "down") - mean(b, "down")); reindex();
+    }
+  }
+
+  // Un nivel puede tener cientos de nodos (una lista suele abrirse en un abanico
+  // de 30 comprados). Dejarlos en una sola fila estira tanto el dibujo que las
+  // etiquetas dejan de leerse, asi que los niveles anchos se reparten en varias
+  // filas. La separacion entre niveles es mayor que entre filas de un mismo
+  // nivel, para que la jerarquia se siga leyendo de arriba abajo.
+  const big = nodes.length > 400;
+  const xgap = big ? 24 : 128;
+  const rowGap = big ? 34 : 62;
+  const bandGap = big ? 190 : 132;
+  const perRow = bands.map(b => Math.max(1, Math.min(b.length, Math.ceil(Math.sqrt(b.length * 2.6)))));
+  const width = Math.max(...bands.map((b, i) => Math.min(b.length, perRow[i]))) * xgap;
+
+  let y = 0;
+  bands.forEach((band, L) => {
+    const cols = perRow[L], rows = Math.ceil(band.length / cols);
+    band.forEach((n, i) => {
+      const row = Math.floor(i / cols), col = i % cols;
+      const len = Math.min(cols, band.length - row * cols);
+      const off = (width - len * xgap) / 2;
+      pos.set(n, { x: off + col * xgap + xgap / 2, y: y + row * rowGap });
+    });
+    y += (rows - 1) * rowGap + bandGap;
+  });
+
+  return { pos, lvl, big, r: big ? 3.2 : 9, labels: !big };
+}
+
+function setScope(roots, dir, label) {
+  scope = { roots, dir, label };
+  const busy = document.getElementById("busy");
+  busy.classList.add("on");
+  // Un frame de respiro para que se pinte el aviso antes de bloquear el hilo.
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const { nodes, edges } = collect(roots, dir);
+    const L = layout(nodes, edges);
+    view = { nodes, edges, ...L };
+    busy.classList.remove("on");
+    describeScope();
+    fit();
+    renderList();
+    // El detalle se pinta antes de recalcular la vista, asi que su nivel
+    // seguiria siendo el del grafo anterior.
+    if (selected >= 0) select(selected);
+  }));
+}
+
+function describeScope() {
+  const kinds = [0, 0, 0];
+  for (const n of view.nodes) kinds[KIND[n]]++;
+  document.getElementById("scope").innerHTML =
+    `<b>${scope.label}</b> — ${view.nodes.length} códigos, ${view.edges.length} enlaces` +
+    ` · ${kinds[0]} finales, ${kinds[1]} fabricados, ${kinds[2]} comprados`;
+}
+
+/* ------------------------------------------------------------------ *
+ * Lienzo
+ * ------------------------------------------------------------------ */
+const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+let k = 1, tx = 0, ty = 0, dpr = 1;
+
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const r = cv.getBoundingClientRect();
+  cv.width = Math.max(1, Math.round(r.width * dpr));
+  cv.height = Math.max(1, Math.round(r.height * dpr));
+  draw();
+}
+
+function fit() {
+  const r = cv.getBoundingClientRect();
+  if (!view.nodes.length) return;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const n of view.nodes) {
+    const p = view.pos.get(n);
+    x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x);
+    y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y);
+  }
+  const pad = 70;
+  k = Math.min((r.width - pad * 2) / Math.max(1, x1 - x0), (r.height - pad * 2) / Math.max(1, y1 - y0));
+  k = Math.max(0.006, Math.min(k, 1.6));
+  tx = r.width / 2 - ((x0 + x1) / 2) * k;
+  ty = r.height / 2 - ((y0 + y1) / 2) * k;
+  draw();
+}
+
+/** Aristas incidentes al nodo activo, para resaltar sin recalcular el grafo. */
+function hotSet() {
+  const focus = hovered >= 0 ? hovered : selected;
+  if (focus < 0) return null;
+  const s = new Set([focus]);
+  for (const c of children(focus)) s.add(c);
+  for (const p of parents(focus)) s.add(p);
+  return { focus, near: s };
+}
+
+function draw() {
+  const r = cv.getBoundingClientRect();
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, r.width, r.height);
+  if (!view.nodes.length) return;
+
+  ctx.setTransform(k * dpr, 0, 0, k * dpr, tx * dpr, ty * dpr);
+  const pos = view.pos, R = view.r, hot = hotSet();
+  const arrows = !view.big && k > 0.42;
+
+  // Todas las aristas frías en un solo trazo: es lo que mantiene fluidas las
+  // 48.756 líneas del mapa completo.
+  const cold = [], warm = [];
+  for (const e of view.edges) (hot && (e[0] === hot.focus || e[1] === hot.focus) ? warm : cold).push(e);
+
+  const stroke = (list, color, width, alpha) => {
+    if (!list.length) return;
+    ctx.globalAlpha = alpha; ctx.strokeStyle = color; ctx.lineWidth = width / k;
+    ctx.beginPath();
+    for (const [a, b] of list) {
+      const p = pos.get(a), q = pos.get(b);
+      ctx.moveTo(p.x, p.y + R);
+      if (view.big) ctx.lineTo(q.x, q.y - R);
+      else {
+        const m = (q.y - p.y) * 0.42;
+        ctx.bezierCurveTo(p.x, p.y + R + m, q.x, q.y - R - m, q.x, q.y - R);
+      }
+    }
+    ctx.stroke();
+    if (arrows) {
+      ctx.globalAlpha = alpha; ctx.fillStyle = color;
+      ctx.beginPath();
+      for (const [, b] of list) {
+        const q = pos.get(b), h = 7 / k, w = 4 / k;
+        ctx.moveTo(q.x, q.y - R); ctx.lineTo(q.x - w, q.y - R - h); ctx.lineTo(q.x + w, q.y - R - h);
+      }
+      ctx.fill();
+    }
+  };
+  stroke(cold, css("--edge"), 1.1, hot ? 0.3 : 0.85);
+  stroke(warm, css("--edge-hot"), 1.9, 1);
+
+  // Nodos.
+  const cols = [css("--fg"), css("--made"), css("--bought")];
+  const bg = css("--canvas-bg");
+  ctx.lineWidth = 2 / k;
+  for (const n of view.nodes) {
+    const p = pos.get(n), kind = KIND[n];
+    const dim = hot && !hot.near.has(n);
+    ctx.globalAlpha = dim ? 0.28 : 1;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, n === selected ? R * 1.45 : R, 0, 6.2832);
+    if (kind === 2) { ctx.fillStyle = bg; ctx.fill(); ctx.strokeStyle = cols[2]; ctx.stroke(); }
+    else { ctx.fillStyle = cols[kind]; ctx.fill(); }
+    if (n === selected || n === hovered) {
+      ctx.strokeStyle = css("--ink"); ctx.lineWidth = 2 / k; ctx.stroke();
+    }
+  }
+
+  // Etiquetas: solo con pocos nodos y zoom suficiente para leerlas.
+  if (view.labels && k > 0.3) {
+    ctx.globalAlpha = 1;
+    ctx.font = `${11 / k}px ${css("--mono") || "monospace"}`;
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    for (const n of view.nodes) {
+      const p = pos.get(n);
+      ctx.globalAlpha = hot && !hot.near.has(n) ? 0.3 : 1;
+      ctx.fillStyle = n === selected || n === hovered ? css("--ink") : css("--ink-2");
+      ctx.fillText(CODES[n], p.x, p.y + R + 6 / k);
+    }
+  }
+  ctx.globalAlpha = 1;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+/* ------------------------------------------------------------------ *
+ * Interacción
+ * ------------------------------------------------------------------ */
+const toWorld = (cx, cy) => {
+  const r = cv.getBoundingClientRect();
+  return { x: (cx - r.left - tx) / k, y: (cy - r.top - ty) / k };
+};
+
+function nodeAt(cx, cy) {
+  const w = toWorld(cx, cy), grab = Math.max(view.r, 7 / k), g2 = grab * grab;
+  let best = -1, bd = Infinity;
+  for (const n of view.nodes) {
+    const p = view.pos.get(n), dx = p.x - w.x, dy = p.y - w.y, d = dx * dx + dy * dy;
+    if (d <= g2 && d < bd) { bd = d; best = n; }
+  }
+  return best;
+}
+
+let drag = null;
+cv.addEventListener("pointerdown", ev => {
+  cv.setPointerCapture(ev.pointerId);
+  const n = nodeAt(ev.clientX, ev.clientY);
+  if (n >= 0) {
+    const w = toWorld(ev.clientX, ev.clientY), p = view.pos.get(n);
+    drag = { node: n, dx: p.x - w.x, dy: p.y - w.y, moved: false };
+  } else {
+    drag = { node: -1, x: ev.clientX - tx, y: ev.clientY - ty, moved: false };
+    cv.classList.add("grabbing");
+  }
+});
+cv.addEventListener("pointermove", ev => {
+  if (drag) {
+    drag.moved = true;
+    if (drag.node >= 0) {
+      const w = toWorld(ev.clientX, ev.clientY);
+      view.pos.set(drag.node, { x: w.x + drag.dx, y: w.y + drag.dy });
+    } else { tx = ev.clientX - drag.x; ty = ev.clientY - drag.y; }
+    draw();
+    return;
+  }
+  const n = nodeAt(ev.clientX, ev.clientY);
+  cv.classList.toggle("on-node", n >= 0);
+  if (n !== hovered) { hovered = n; draw(); }
+});
+function endDrag(ev) {
+  if (drag && drag.node >= 0 && !drag.moved) select(drag.node);
+  else if (drag && drag.node < 0 && !drag.moved) select(-1);
+  drag = null; cv.classList.remove("grabbing");
+}
+cv.addEventListener("pointerup", endDrag);
+cv.addEventListener("pointercancel", endDrag);
+cv.addEventListener("pointerleave", () => { if (hovered !== -1) { hovered = -1; draw(); } });
+
+cv.addEventListener("wheel", ev => {
+  ev.preventDefault();
+  const r = cv.getBoundingClientRect(), mx = ev.clientX - r.left, my = ev.clientY - r.top;
+  const f = Math.exp(-ev.deltaY * 0.0016), nk = Math.max(0.004, Math.min(6, k * f));
+  tx = mx - (mx - tx) * (nk / k); ty = my - (my - ty) * (nk / k); k = nk;
+  draw();
+}, { passive: false });
+
+/* ------------------------------------------------------------------ *
+ * Panel de detalle
+ * ------------------------------------------------------------------ */
+function select(n) {
+  selected = n;
+  const box = document.getElementById("detail");
+  if (n < 0) {
+    box.innerHTML = `<div class="sec"><p class="empty">Elige un código en la lista o pincha un punto del grafo.</p>
+      <p class="note">Los puntos huecos son materiales que Ashford compra: no tienen máquina en la pestaña RATE
+      y por eso no cuelga nada de ellos.</p></div>`;
+    draw(); return;
+  }
+  const kind = KIND[n], ms = machinesOf(n);
+  const inView = view.pos.has(n);
+  box.innerHTML = `
+    <div class="sec">
+      <p id="dcode">${CODES[n]}</p>
+      <span class="badge ${KIND_CLASS[kind]}"><i class="dot ${KIND_CLASS[kind]}"></i>${KIND_NAME[kind]}</span>
+    </div>
+    <div class="sec">
+      <h2>Estructura</h2>
+      <dl class="kv">
+        <dt>Componentes directos</dt><dd>${nCh(n)}</dd>
+        <dt>Lo consumen</dt><dd>${nPa(n)} código${nPa(n) === 1 ? "" : "s"}</dd>
+        <dt>Árbol completo</dt><dd>${subtreeSize(n)}</dd>
+        ${inView ? `<dt>Nivel en la vista</dt><dd>${view.lvl.get(n)}</dd>` : ""}
+      </dl>
+    </div>
+    <div class="sec">
+      <h2>Dónde se fabrica</h2>
+      ${ms.length
+        ? `<div class="chips">${ms.map(m => `<span class="chip">${MACHINES[m]} <i>op ${MOPS[m]}</i></span>`).join("")}</div>`
+        : `<p class="empty">Sin máquina asignada. Es material comprado.</p>`}
+    </div>
+    <div class="sec">
+      <h2>Explorar</h2>
+      <div class="acts">
+        <button data-act="down"${nCh(n) ? "" : " disabled"}>Explotar desde aquí</button>
+        <button data-act="up"${nPa(n) ? "" : " disabled"}>Ver dónde se usa</button>
+      </div>
+    </div>`;
+  box.querySelectorAll("[data-act]").forEach(b => b.onclick = () => {
+    const d = b.dataset.act;
+    setScope([n], d, d === "down" ? `Explosión de ${CODES[n]}` : `Dónde se usa ${CODES[n]}`);
+  });
+  draw();
+}
+
+const subCache = new Map();
+function subtreeSize(n) {
+  if (subCache.has(n)) return subCache.get(n);
+  const seen = new Uint8Array(N), st = [n]; seen[n] = 1; let c = 0;
+  while (st.length) { const x = st.pop(); c++; for (const m of children(x)) if (!seen[m]) { seen[m] = 1; st.push(m); } }
+  subCache.set(n, c); return c;
+}
+
+/* ------------------------------------------------------------------ *
+ * Lista lateral
+ * ------------------------------------------------------------------ */
+const search = document.getElementById("search");
+const listEl = document.getElementById("list");
+let filters = new Set([0]);
+
+document.querySelectorAll("[data-filter]").forEach(b => b.onclick = () => {
+  const f = +b.dataset.filter;
+  if (filters.has(f)) filters.delete(f); else filters.add(f);
+  if (!filters.size) filters.add(f);
+  document.querySelectorAll("[data-filter]").forEach(x =>
+    x.setAttribute("aria-pressed", filters.has(+x.dataset.filter)));
+  renderList();
+});
+search.addEventListener("input", renderList);
+
+function renderList() {
+  const q = search.value.trim().toUpperCase();
+  const hits = [];
+  for (let i = 0; i < N && hits.length < 400; i++)
+    if (filters.has(KIND[i]) && (!q || CODES[i].toUpperCase().includes(q))) hits.push(i);
+
+  document.getElementById("count").textContent =
+    hits.length >= 400 ? "primeros 400 resultados" : `${hits.length} código${hits.length === 1 ? "" : "s"}`;
+
+  listEl.innerHTML = hits.map(i => `
+    <button class="row" data-i="${i}" role="option" aria-current="${scope.roots[0] === i}">
+      <i class="dot ${KIND_CLASS[KIND[i]]}"></i>${CODES[i]}
+      <span class="meta">${nCh(i) ? nCh(i) + " comp." : "—"}</span>
+    </button>`).join("");
+
+  listEl.querySelectorAll(".row").forEach(b => b.onclick = () => {
+    const i = +b.dataset.i;
+    select(i);
+    if (nCh(i)) setScope([i], "down", `Explosión de ${CODES[i]}`);
+    else setScope([i], "up", `Dónde se usa ${CODES[i]}`);
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ * Arranque
+ * ------------------------------------------------------------------ */
+document.getElementById("btn-fit").onclick = fit;
+document.getElementById("btn-relayout").onclick = () => setScope(scope.roots, scope.dir, scope.label);
+document.getElementById("btn-all").onclick = () => {
+  const roots = [];
+  for (let i = 0; i < N; i++) if (KIND[i] === 0) roots.push(i);
+  setScope(roots, "down", "Toda la fábrica");
+};
+
+new ResizeObserver(resize).observe(document.getElementById("stage"));
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
+new MutationObserver(draw).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+select(-1);
+setScope([DATA.start], "down", `Explosión de ${CODES[DATA.start]}`);
+resize();
+</script>
