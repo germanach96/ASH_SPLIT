@@ -556,43 +556,51 @@ function layoutLayered(nodes, edges) {
 function layoutClusters(nodes, edges) {
   topoLevels(nodes, edges);
 
-  const groups = new Map();          // cluster id -> codes
+  // Machine blocks group by their set of machines. Purchased codes have no
+  // machine to group on, so they split by depth instead: one block per level.
+  // LVL is the longest path from a root, so a component used at several depths
+  // lands on the deepest one it reaches.
+  const groups = new Map();
   for (const n of nodes) {
-    const g = CLUSTER[n];
-    if (!groups.has(g)) groups.set(g, []);
-    groups.get(g).push(n);
+    const id = CLUSTER[n], cmp = CLUSTER_META[id].cmp;
+    const key = cmp ? "c" + LVL[n] : id;
+    let g = groups.get(key);
+    if (!g) { g = { meta: CLUSTER_META[id], cmp, list: [] }; groups.set(key, g); }
+    g.list.push(n);
   }
 
   // Minimum width so the label always fits. Without it, small boxes let their
   // label spill over the block next door.
   const gap = 15, pad = 20, head = 36, minW = 142;
-  const boxes = [...groups].map(([id, list]) => {
-    const meta = CLUSTER_META[id];
-    const cols = Math.max(1, Math.ceil(Math.sqrt(list.length * 1.25)));
-    const rows = Math.ceil(list.length / cols);
+  const boxes = [...groups.values()].map(g => {
+    const cols = Math.max(1, Math.ceil(Math.sqrt(g.list.length * 1.25)));
+    const rows = Math.ceil(g.list.length / cols);
     let sum = 0;
-    for (const n of list) sum += LVL[n];
+    for (const n of g.list) sum += LVL[n];
     return {
-      id, list, cols, rows, meta,
-      level: sum / list.length,
+      ...g, cols, rows,
+      // A purchased block holds one level exactly; a machine block is placed on
+      // the average of its codes' depths.
+      level: g.cmp ? LVL[g.list[0]] : sum / g.list.length,
       w: Math.max(minW, cols * gap + pad * 2),
       h: rows * gap + pad * 2 + head
     };
   });
 
-  // Blocks are stacked by the mean depth of the codes inside them, so the
-  // machines that only turn out finished goods sit on top and the deepest bulks
-  // at the bottom. It is deliberately approximate: a block whose codes sit on
-  // several levels lands on their average.
-  const cmpBoxes = boxes.filter(b => b.meta.cmp);
-  const machBoxes = boxes.filter(b => !b.meta.cmp);
+  // Blocks are stacked by depth, so the machines that only turn out finished
+  // goods sit on top and the deepest bulks at the bottom. It is deliberately
+  // approximate for machine blocks: one whose codes sit on several levels lands
+  // on their average.
+  const cmpByLevel = new Map();
   const bands = new Map();
-  for (const b of machBoxes) {
+  for (const b of boxes) {
+    if (b.cmp) { cmpByLevel.set(b.level, b); continue; }
     const L = Math.round(b.level);
     if (!bands.has(L)) bands.set(L, []);
     bands.get(L).push(b);
   }
-  const levels = [...bands.keys()].sort((a, b) => a - b);
+  const levels = [...new Set([...bands.keys(), ...cmpByLevel.keys()])].sort((a, b) => a - b);
+  const machBoxes = boxes.filter(b => !b.cmp);
 
   // Shelf packing inside each band: boxes go left to right, biggest first, and
   // wrap once they pass the target width so the whole thing lands roughly
@@ -611,38 +619,43 @@ function layoutClusters(nodes, edges) {
     clusters.push({
       x: b.x, y: b.y, w: b.w, h: b.h,
       label: b.meta.label,
-      sub: b.meta.cmp ? `${b.list.length} codes`
-        : `op ${b.meta.op} · ${b.meta.machines.length > 1 ? b.meta.machines.length + " mach · " : ""}${b.list.length}`
+      // Kept terse so the second line fits the narrowest box too: spelled out,
+      // "op 0040 · 2 mach · 35" runs past the minimum width.
+      sub: b.cmp ? `level ${b.level} · ${b.list.length}`
+        : `op ${b.meta.op} · ${b.meta.machines.length > 1 ? b.meta.machines.length + "m · " : ""}${b.list.length}`
     });
   };
+
+  // Purchased blocks keep a column of their own to the right of the machines,
+  // each one level with the band it belongs to.
+  const cmpX = target + 90;
+  const rightEdge = cmpX + Math.max(0, ...[...cmpByLevel.values()].map(b => b.w));
 
   let y = 0;
   const banners = [];
   for (const L of levels) {
-    const band = bands.get(L).sort((a, b) => b.list.length - a.list.length);
+    const band = (bands.get(L) || []).sort((a, b) => b.list.length - a.list.length);
     const top = y;
-    let x = 0, rowH = 0;
+    let x = 0, rowY = top, rowH = 0;
     for (const b of band) {
-      if (x > 0 && x + b.w > target) { x = 0; y += rowH + gapRow; rowH = 0; }
-      b.x = x; b.y = y;
+      if (x > 0 && x + b.w > target) { x = 0; rowY += rowH + gapRow; rowH = 0; }
+      b.x = x; b.y = rowY;
       rowH = Math.max(rowH, b.h);
       x += b.w + gapCol;
       place(b);
     }
-    y += rowH;
-    banners.push({ level: L, y: top, n: band.length, w: Math.max(target, x - gapCol) });
-    y += gapBand;
-  }
-  const stackBottom = Math.max(0, y - gapBand);
+    let bottom = band.length ? rowY + rowH : top;
 
-  // Purchased codes hang off every level at once, so they get one block to the
-  // right of the stack rather than a place in it.
-  for (const b of cmpBoxes) {
-    b.x = target + 90;
-    b.y = Math.max(0, (stackBottom - b.h) / 2);
-    place(b);
-  }
+    const cb = cmpByLevel.get(L);
+    if (cb) {
+      cb.x = cmpX; cb.y = top;
+      place(cb);
+      bottom = Math.max(bottom, top + cb.h);
+    }
 
+    banners.push({ level: L, y: top, n: band.length + (cb ? 1 : 0), w: rightEdge });
+    y = bottom + gapBand;
+  }
   return {
     big: nodes.length > 400, r: nodes.length > 400 ? 3.4 : 6, labels: false,
     clusters, banners
