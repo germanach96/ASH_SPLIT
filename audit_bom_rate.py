@@ -1,6 +1,14 @@
 """Auditoria de calidad de datos de las pestanas BOM y RATE de 'Ashford split 2.xlsx'.
 
-Uso:  python3 audit_bom_rate.py ["Ashford split 2.xlsx"]
+OJO: este script audita el EXTRACTO ORIGINAL (BOM con BOMElementId compuesto y
+RATE con OperationId compuesto). El fichero del repositorio ya fue limpiado por
+clean_bom_rate.py y tiene otras columnas, asi que este script no corre contra el.
+Para reproducir la auditoria, recupera el extracto original:
+
+    git show 04ba1d0:'Ashford split 2.xlsx' > original.xlsx
+    python3 audit_bom_rate.py original.xlsx
+
+Uso:  python3 audit_bom_rate.py <fichero.xlsx>
 
 Comprueba integridad referencial entre la lista de materiales (BOM) y las rutas
 de fabricacion (RATE), consistencia del ID compuesto de cada registro, ciclos en
