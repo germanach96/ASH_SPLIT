@@ -26,6 +26,8 @@
     --cluster: #eaf0f2;
     --cluster-line: #d9e3e6;
     --focus: #0f766e;
+    --pick: #4f46e5;
+    --pick-soft: #e6e5fb;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -34,6 +36,7 @@
       --fg: #e8763c; --made: #3fb5a6; --bought: #7d8f9a;
       --fg-soft: #33200f; --made-soft: #0e2d2b; --bought-soft: #1b262a;
       --edge: #2c4046; --edge-hot: #3fb5a6; --cluster: #101b1f; --cluster-line: #1e2f35; --focus: #3fb5a6;
+      --pick: #8b8cf0; --pick-soft: #1e1d3d;
     }
   }
   :root[data-theme="dark"] {
@@ -42,6 +45,7 @@
     --fg: #e8763c; --made: #3fb5a6; --bought: #7d8f9a;
     --fg-soft: #33200f; --made-soft: #0e2d2b; --bought-soft: #1b262a;
     --edge: #2c4046; --edge-hot: #3fb5a6; --cluster: #101b1f; --cluster-line: #1e2f35; --focus: #3fb5a6;
+    --pick: #8b8cf0; --pick-soft: #1e1d3d;
   }
   :root[data-theme="light"] {
     --ground: #eef2f3; --panel: #ffffff; --panel-2: #f6f9fa; --canvas-bg: #f8fafb;
@@ -49,6 +53,7 @@
     --fg: #b8460f; --made: #0f766e; --bought: #8896a2;
     --fg-soft: #f5e2d8; --made-soft: #d8ebe8; --bought-soft: #e3e9ec;
     --edge: #b3c2c7; --edge-hot: #0f766e; --cluster: #eaf0f2; --cluster-line: #d9e3e6; --focus: #0f766e;
+    --pick: #4f46e5; --pick-soft: #e6e5fb;
   }
 
   * { box-sizing: border-box; }
@@ -134,7 +139,43 @@
   #stage { position: relative; background: var(--canvas-bg); min-width: 0; }
   canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
   canvas.grabbing { cursor: grabbing; }
-  canvas.on-node { cursor: pointer; }
+  canvas.marquee { cursor: crosshair; }
+  canvas.on-node { cursor: pointer; }   /* después de .marquee: sobre un punto manda el puntero */
+  button[aria-pressed="true"].pick { background: var(--pick-soft); border-color: var(--pick); color: var(--ink); }
+  /* El hueco se reserva siempre: si el contador apareciese al marcar el primer
+     punto, la barra crecería y el lienzo daría un salto bajo el cursor. */
+  #picked {
+    font-family: var(--mono); font-size: 11px; color: var(--pick); letter-spacing: .06em;
+    white-space: nowrap; min-width: 13ch; visibility: hidden;
+  }
+  #picked.on { visibility: visible; }
+
+  #selbox { display: flex; flex-direction: column; gap: 9px; }
+  #selchips { display: flex; flex-wrap: wrap; gap: 4px; max-height: 132px; overflow-y: auto; }
+  #selchips .chip { border-color: var(--pick); color: var(--pick); background: var(--pick-soft); }
+  .selacts { display: flex; gap: 5px; }
+  .selacts button { flex: 1; padding: 6px 4px; }
+
+  #modal {
+    position: fixed; inset: 0; z-index: 20; display: none; place-items: center;
+    /* Velo oscuro fijo: con var(--ink) se volvía casi blanco en tema oscuro y
+       blanqueaba la página entera en vez de atenuarla. */
+    background: rgba(6, 12, 14, .58); padding: 24px;
+  }
+  #modal.on { display: grid; }
+  #modal .sheet {
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 3px;
+    width: min(760px, 100%); max-height: 86vh; display: flex; flex-direction: column;
+  }
+  #modal header { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-bottom: 1px solid var(--rule); }
+  #modal h2 { margin: 0; margin-right: auto; font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
+  #csv {
+    flex: 1; min-height: 240px; margin: 0; border: 0; border-bottom: 1px solid var(--rule); resize: none;
+    padding: 14px 16px; font-family: var(--mono); font-size: 11.5px; line-height: 1.6;
+    color: var(--ink); background: var(--panel-2); white-space: pre; overflow: auto;
+  }
+  #modal footer { display: flex; align-items: center; gap: 8px; padding: 12px 16px; }
+  #modal footer .note { margin: 0; margin-right: auto; }
   #hint {
     position: absolute; left: 14px; bottom: 12px; display: flex; gap: 14px; flex-wrap: wrap;
     font-family: var(--mono); font-size: 10px; letter-spacing: .06em; color: var(--ink-3);
@@ -195,6 +236,8 @@
         <button id="lay-clu" aria-pressed="false">Clusters</button>
       </div>
       <button id="btn-links" aria-pressed="false" title="Resumir los enlaces entre clusters en una sola línea por par">Agrupar enlaces</button>
+      <button id="btn-multi" class="pick" aria-pressed="false" title="Arrastra sobre el fondo para encerrar puntos en un rectángulo">Selección múltiple</button>
+      <span id="picked"></span>
       <button id="btn-fit">Encajar</button>
       <button id="btn-relayout">Recolocar</button>
       <button id="btn-all">Toda la fábrica</button>
@@ -247,9 +290,36 @@
   </main>
 
   <aside id="right">
+    <div class="sec" id="selbox">
+      <h2 id="selhead">Selección</h2>
+      <div id="selchips"></div>
+      <div class="selacts">
+        <button id="btn-export" disabled>Exportar</button>
+        <button id="btn-clear" disabled>Deseleccionar</button>
+      </div>
+    </div>
     <div class="sec"><h2>Detalle</h2></div>
     <div id="detail"></div>
   </aside>
+</div>
+
+<div id="modal" role="dialog" aria-modal="true" aria-labelledby="modaltitle" hidden>
+  <div class="sheet">
+    <header>
+      <h2 id="modaltitle">Exportar selección</h2>
+      <div class="split">
+        <button id="ex-codes" aria-pressed="true">Códigos</button>
+        <button id="ex-links" aria-pressed="false">Relaciones</button>
+      </div>
+      <button id="ex-close">Cerrar</button>
+    </header>
+    <textarea id="csv" readonly spellcheck="false" aria-label="Datos en CSV"></textarea>
+    <footer>
+      <p class="note">Separado por punto y coma, para que Excel en español lo abra en columnas.</p>
+      <button id="ex-copy">Copiar</button>
+      <button id="ex-download">Descargar CSV</button>
+    </footer>
+  </div>
 </div>
 
 <script>
@@ -338,6 +408,12 @@ let view = { nodes: new Int32Array(0), edges: new Int32Array(0), big: false, r: 
 let scope = { kind: "code", seeds: [], dir: "both", label: "" };
 let layoutMode = "tree", groupLinks = false, autoGroup = true;
 let selected = -1, hovered = -1;
+
+// Selección múltiple. Vive fuera de la vista, indexada por código global: al
+// cambiar de alcance no se pierde lo ya marcado, que es justo lo que se espera
+// de una selección que se va sumando.
+const MARKED = new Uint8Array(N);
+let nMarked = 0, multiMode = false, band = null;
 
 /** Cierre transitivo hacia arriba (consumidores) y/o hacia abajo (componentes). */
 function collect(seeds, dir) {
@@ -510,6 +586,7 @@ function setScope(kind, seeds, dir, label) {
     busy.classList.remove("on");
     syncTools();
     describeScope();
+    renderSelection();   // cambia cuántos marcados caen dentro de la vista
     fit();
     if (selected >= 0) select(selected);
   }));
@@ -560,7 +637,7 @@ function readPalette() {
   pal = {
     fg: g("--fg"), made: g("--made"), bought: g("--bought"), bg: g("--canvas-bg"),
     edge: g("--edge"), hot: g("--edge-hot"), ink: g("--ink"), ink2: g("--ink-2"), ink3: g("--ink-3"),
-    cluster: g("--cluster"), clusterLine: g("--cluster-line"), mono: g("--mono")
+    cluster: g("--cluster"), clusterLine: g("--cluster-line"), mono: g("--mono"), pick: g("--pick")
   };
 }
 
@@ -706,6 +783,32 @@ function draw() {
     if (n === selected || n === hovered) { ctx.strokeStyle = pal.ink; ctx.stroke(); }
   }
 
+  // Marcados, por encima de los puntos para que no los tape nada. En las vistas
+  // densas se rellena el punto: un anillo tiene grosor fijo en pantalla pero
+  // radio en unidades del dibujo, así que al alejar el zoom se cierra sobre sí
+  // mismo y las marcas se funden en manchas. Rellenando, un punto sigue siendo
+  // un punto por muy junto que esté del vecino.
+  if (nMarked) {
+    ctx.globalAlpha = 1;
+    if (view.big) {
+      ctx.fillStyle = pal.pick;
+      ctx.beginPath();
+      for (const n of view.nodes) if (MARKED[n]) {
+        ctx.moveTo(PX[n] + R, PY[n]);
+        ctx.arc(PX[n], PY[n], R, 0, 6.2832);
+      }
+      ctx.fill();
+    } else {
+      ctx.strokeStyle = pal.pick; ctx.lineWidth = 2.4 / k;
+      ctx.beginPath();
+      for (const n of view.nodes) if (MARKED[n]) {
+        ctx.moveTo(PX[n] + R * 2, PY[n]);
+        ctx.arc(PX[n], PY[n], R * 2, 0, 6.2832);
+      }
+      ctx.stroke();
+    }
+  }
+
   // Rótulos de cluster y códigos del grafo van en unidades del mundo, no de
   // pantalla: así encogen con el zoom junto a la caja que los contiene y nunca
   // se montan sobre el bloque de al lado. Por debajo de 5 px reales no se leen,
@@ -745,30 +848,66 @@ function draw() {
   }
   ctx.globalAlpha = 1;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  // El rectángulo de selección se dibuja en coordenadas de pantalla: sigue al
+  // cursor, no al dibujo, igual que en cualquier gestor de archivos.
+  if (band) {
+    const x = Math.min(band.x0, band.x1), y = Math.min(band.y0, band.y1);
+    const w = Math.abs(band.x1 - band.x0), h = Math.abs(band.y1 - band.y0);
+    ctx.fillStyle = pal.pick; ctx.globalAlpha = .12; ctx.fillRect(x, y, w, h);
+    ctx.globalAlpha = .9; ctx.strokeStyle = pal.pick; ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]); ctx.strokeRect(x + .5, y + .5, w, h); ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+  }
 }
 
 /* ================================================================== *
  * Interacción
  * ================================================================== */
 let drag = null;
+const local = ev => { const r = cv.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; };
+const world = ev => { const p = local(ev); return { x: (p.x - tx) / k, y: (p.y - ty) / k }; };
+
 cv.addEventListener("pointerdown", ev => {
   cv.setPointerCapture(ev.pointerId);
   const n = nodeAt(ev.clientX, ev.clientY);
-  if (n >= 0) {
-    const r = cv.getBoundingClientRect();
-    drag = { node: n, dx: PX[n] - (ev.clientX - r.left - tx) / k, dy: PY[n] - (ev.clientY - r.top - ty) / k, moved: false };
+  const wantPan = ev.shiftKey || ev.button === 1;
+
+  // En modo selección el rectángulo tiene prioridad sobre mover un punto suelto.
+  // En el mapa completo hay puntos casi en cada píxel, así que exigir fondo
+  // vacío para empezar a encerrar dejaría el rectángulo imposible de iniciar.
+  // Solo un punto ya marcado arranca arrastre, y arrastra todo el bloque.
+  let mode;
+  if (wantPan) mode = "pan";
+  else if (multiMode) mode = (n >= 0 && MARKED[n]) ? "block" : "band";
+  else mode = n >= 0 ? "node" : "pan";
+
+  if (mode === "block") {
+    drag = { mode, node: n, last: world(ev), moved: false };
+  } else if (mode === "node") {
+    const w = world(ev);
+    drag = { mode, node: n, dx: PX[n] - w.x, dy: PY[n] - w.y, moved: false };
+  } else if (mode === "band") {
+    const p = local(ev);
+    drag = { mode, node: n, moved: false };
+    band = { x0: p.x, y0: p.y, x1: p.x, y1: p.y };
   } else {
-    drag = { node: -1, x: ev.clientX - tx, y: ev.clientY - ty, moved: false };
+    drag = { mode, node: n, x: ev.clientX - tx, y: ev.clientY - ty, moved: false };
     cv.classList.add("grabbing");
   }
 });
+
 cv.addEventListener("pointermove", ev => {
   if (drag) {
     drag.moved = true;
-    if (drag.node >= 0) {
-      const r = cv.getBoundingClientRect();
-      PX[drag.node] = (ev.clientX - r.left - tx) / k + drag.dx;
-      PY[drag.node] = (ev.clientY - r.top - ty) / k + drag.dy;
+    if (drag.mode === "band") { const p = local(ev); band.x1 = p.x; band.y1 = p.y; }
+    else if (drag.mode === "block") {
+      const w = world(ev), dx = w.x - drag.last.x, dy = w.y - drag.last.y;
+      for (const n of view.nodes) if (MARKED[n]) { PX[n] += dx; PY[n] += dy; }
+      drag.last = w;
+    } else if (drag.mode === "node") {
+      const w = world(ev);
+      PX[drag.node] = w.x + drag.dx; PY[drag.node] = w.y + drag.dy;
     } else { tx = ev.clientX - drag.x; ty = ev.clientY - drag.y; }
     draw();
     return;
@@ -777,14 +916,75 @@ cv.addEventListener("pointermove", ev => {
   cv.classList.toggle("on-node", n >= 0);
   if (n !== hovered) { hovered = n; draw(); }
 });
+
 function endDrag() {
-  if (drag && !drag.moved) select(drag.node);
-  else if (drag && drag.node >= 0) buildGrid();
-  drag = null; cv.classList.remove("grabbing");
+  if (!drag) return;
+  if (!drag.moved) {
+    // Un clic sin desplazamiento marca o desmarca; fuera del modo múltiple
+    // solo cambia el punto del panel de detalle.
+    if (multiMode && drag.node >= 0) setMark(drag.node, !MARKED[drag.node]);
+    select(drag.node);
+  } else if (drag.mode === "band") markInBand();
+  else if (drag.mode === "node" || drag.mode === "block") buildGrid();
+  band = null;
+  drag = null;
+  cv.classList.remove("grabbing");
+  draw();
 }
 cv.addEventListener("pointerup", endDrag);
 cv.addEventListener("pointercancel", endDrag);
 cv.addEventListener("pointerleave", () => { if (hovered !== -1) { hovered = -1; draw(); } });
+
+/* --- selección múltiple --- */
+function setMark(n, on) {
+  if (n < 0 || !!MARKED[n] === on) return;
+  MARKED[n] = on ? 1 : 0; nMarked += on ? 1 : -1;
+  renderSelection();
+}
+
+/** Marca todo punto de la vista cuyo centro cae dentro del rectángulo. Suma a
+ *  lo ya marcado: nunca borra una selección anterior. */
+function markInBand() {
+  const x0 = Math.min(band.x0, band.x1), x1 = Math.max(band.x0, band.x1);
+  const y0 = Math.min(band.y0, band.y1), y1 = Math.max(band.y0, band.y1);
+  let añadidos = 0;
+  for (const n of view.nodes) {
+    if (MARKED[n]) continue;
+    const sx = PX[n] * k + tx, sy = PY[n] * k + ty;
+    if (sx >= x0 && sx <= x1 && sy >= y0 && sy <= y1) { MARKED[n] = 1; nMarked++; añadidos++; }
+  }
+  if (añadidos) renderSelection();
+}
+
+function clearMarks() {
+  if (!nMarked) return;
+  MARKED.fill(0); nMarked = 0;
+  renderSelection(); draw();
+}
+
+function renderSelection() {
+  const chips = document.getElementById("selchips");
+  document.getElementById("btn-export").disabled = !nMarked;
+  document.getElementById("btn-clear").disabled = !nMarked;
+  const badge = document.getElementById("picked");
+  badge.classList.toggle("on", nMarked > 0);
+  badge.textContent = nMarked ? `${nMarked} seleccionado${nMarked === 1 ? "" : "s"}` : "";
+
+  const head = document.getElementById("selhead");
+  if (!nMarked) {
+    head.textContent = "Selección";
+    chips.innerHTML = `<p class="empty">Activa <b>Selección múltiple</b> y arrastra un rectángulo sobre el fondo para encerrar puntos. Cada rectángulo suma a lo ya marcado.</p>`;
+    return;
+  }
+  let enVista = 0;
+  for (const n of view.nodes) if (MARKED[n]) enVista++;
+  head.textContent = `Selección — ${nMarked}${enVista < nMarked ? ` · ${enVista} en esta vista` : ""}`;
+
+  const lista = [];
+  for (let i = 0; i < N && lista.length < 300; i++) if (MARKED[i]) lista.push(i);
+  chips.innerHTML = lista.map(i => `<span class="chip">${CODES[i]}</span>`).join("") +
+    (nMarked > lista.length ? `<span class="chip"><i>y ${nMarked - lista.length} más</i></span>` : "");
+}
 cv.addEventListener("wheel", ev => {
   ev.preventDefault();
   const r = cv.getBoundingClientRect(), mx = ev.clientX - r.left, my = ev.clientY - r.top;
@@ -948,6 +1148,98 @@ function applyMachines() {
 }
 
 /* ================================================================== *
+ * Exportación
+ *
+ * Punto y coma como separador: es lo que espera Excel en español, y así el
+ * fichero se abre en columnas con un doble clic.
+ * ================================================================== */
+const SEP = ";";
+const campo = v => {
+  const s = String(v);
+  return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+const fila = vs => vs.map(campo).join(SEP);
+
+function marcados() {
+  const out = [];
+  for (let i = 0; i < N; i++) if (MARKED[i]) out.push(i);
+  return out;
+}
+
+function csvCodigos() {
+  const filas = [fila(["Codigo", "Tipo", "ComponentesDirectos", "LoConsumen",
+    "ExplosionCompleta", "ProductosFinalesEncima", "Maquinas", "Operaciones"])];
+  for (const n of marcados()) {
+    const ms = machinesOf(n);
+    filas.push(fila([
+      CODES[n], KIND_NAME[KIND[n]], nCh(n), nPa(n),
+      reach(n, CH_OFF, CH_IDX), finalesEncima(n),
+      ms.map(m => MACHINES[m]).join(" "),
+      [...new Set(ms.map(m => MOPS[m]))].join(" ")
+    ]));
+  }
+  return filas.join("\n");
+}
+
+/** Relaciones padre-hijo con los dos extremos dentro de la selección. */
+function csvRelaciones() {
+  const filas = [fila(["Padre", "Hijo", "TipoPadre", "TipoHijo"])];
+  for (const p of marcados())
+    for (let e = CH_OFF[p]; e < CH_OFF[p + 1]; e++) {
+      const c = CH_IDX[e];
+      if (MARKED[c]) filas.push(fila([CODES[p], CODES[c], KIND_NAME[KIND[p]], KIND_NAME[KIND[c]]]));
+    }
+  return filas.join("\n");
+}
+
+const modal = document.getElementById("modal");
+const csvBox = document.getElementById("csv");
+let exportKind = "codes";
+
+function renderExport() {
+  document.getElementById("ex-codes").setAttribute("aria-pressed", exportKind === "codes");
+  document.getElementById("ex-links").setAttribute("aria-pressed", exportKind === "links");
+  csvBox.value = exportKind === "codes" ? csvCodigos() : csvRelaciones();
+}
+function openExport() {
+  if (!nMarked) return;
+  renderExport();
+  modal.hidden = false; modal.classList.add("on");
+  csvBox.focus(); csvBox.select();
+}
+function closeExport() { modal.classList.remove("on"); modal.hidden = true; }
+
+document.getElementById("btn-export").onclick = openExport;
+document.getElementById("btn-clear").onclick = clearMarks;
+document.getElementById("ex-close").onclick = closeExport;
+document.getElementById("ex-codes").onclick = () => { exportKind = "codes"; renderExport(); };
+document.getElementById("ex-links").onclick = () => { exportKind = "links"; renderExport(); };
+modal.addEventListener("click", ev => { if (ev.target === modal) closeExport(); });
+addEventListener("keydown", ev => { if (ev.key === "Escape" && modal.classList.contains("on")) closeExport(); });
+
+document.getElementById("ex-download").onclick = ev => {
+  const nombre = `ashford_${exportKind === "codes" ? "codigos" : "relaciones"}_${nMarked}.csv`;
+  // BOM inicial para que Excel respete los acentos.
+  const blob = new Blob(["﻿" + csvBox.value], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = nombre;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  ev.target.textContent = "Descargado";
+  setTimeout(() => ev.target.textContent = "Descargar CSV", 1800);
+};
+document.getElementById("ex-copy").onclick = async ev => {
+  const boton = ev.target;
+  let ok = false;
+  try { await navigator.clipboard.writeText(csvBox.value); ok = true; }
+  catch { csvBox.focus(); csvBox.select(); try { ok = document.execCommand("copy"); } catch { ok = false; } }
+  // Si el navegador bloquea el portapapeles, el texto queda seleccionado en el
+  // cuadro y basta con copiarlo a mano.
+  boton.textContent = ok ? "Copiado" : "Copia con Ctrl+C";
+  setTimeout(() => boton.textContent = "Copiar", 2200);
+};
+
+/* ================================================================== *
  * Barra de herramientas
  * ================================================================== */
 function syncTools() {
@@ -961,6 +1253,16 @@ document.getElementById("lay-clu").onclick = () => { layoutMode = "clusters"; re
 document.getElementById("btn-links").onclick = () => { autoGroup = false; groupLinks = !groupLinks; relayout(); };
 document.getElementById("btn-fit").onclick = fit;
 document.getElementById("btn-relayout").onclick = relayout;
+document.getElementById("btn-multi").onclick = ev => {
+  multiMode = !multiMode;
+  ev.currentTarget.setAttribute("aria-pressed", multiMode);
+  cv.classList.toggle("marquee", multiMode);
+  document.getElementById("hint").innerHTML = multiMode
+    ? `<span>Arrastra sobre el fondo para encerrar puntos</span><span>Cada rectángulo suma</span>
+       <span>Arrastra un punto marcado y se mueve el bloque</span><span>Mayús + arrastrar para desplazar</span>`
+    : `<span>Arrastra un punto para moverlo</span><span>Arrastra el fondo para desplazar</span>
+       <span>Rueda para zoom</span><span>Clic para ver el código</span>`;
+};
 document.getElementById("btn-all").onclick = () => {
   layoutMode = "clusters";
   const seeds = [];
@@ -979,6 +1281,7 @@ new MutationObserver(onTheme).observe(document.documentElement, { attributes: tr
 
 renderCodes();
 renderMachines();
+renderSelection();
 select(-1);
 setScope("code", [DATA.start], "both", `Contexto de ${CODES[DATA.start]}`);
 resize();
