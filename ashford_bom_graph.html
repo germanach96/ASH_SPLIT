@@ -385,35 +385,44 @@ for (let i = 0; i < N; i++) {
   KIND[i] = bulk ? BLK : (nPa(i) === 0 ? FG : WIP);
 }
 
-// 1,525 of the 3,925 producible codes run on more than one machine, so one
-// cluster per machine forces a choice. Taking the first would leave 17
-// machines without a single point; handing each code to the machine carrying
-// the fewest puts all 63 on the map.
-const PRIMARY = new Int32Array(N).fill(-1);
+/* Clusters keyed on the whole set of machines a code can run on, not on one
+ * chosen machine. A code that can be made on P05P0502 and P05P0506 lands in its
+ * own 0502+0506 cluster, separate from the codes tied to either machine alone,
+ * so the fluidity is visible instead of being flattened away. That splits the
+ * 63 machines into 95 clusters, and the bulks into the most sub-groups.
+ *
+ * The set comes from RATE and never changes, so the ids are built once here. */
+const CLUSTER = new Int32Array(N);
+const CLUSTER_META = [];
 {
-  const load = new Int32Array(NM);
-  const orden = [];
-  for (let i = 0; i < N; i++) if (M_OFF[i + 1] > M_OFF[i]) orden.push(i);
-  orden.sort((a, b) => (M_OFF[a + 1] - M_OFF[a]) - (M_OFF[b + 1] - M_OFF[b]) || a - b);
-  for (const i of orden) {
-    let best = M_IDX[M_OFF[i]];
-    for (let e = M_OFF[i] + 1; e < M_OFF[i + 1]; e++) if (load[M_IDX[e]] < load[best]) best = M_IDX[e];
-    PRIMARY[i] = best; load[best]++;
+  const byKey = new Map();
+  for (let i = 0; i < N; i++) {
+    // M_IDX is emitted sorted per code, so the key is already canonical.
+    const ms = Array.from(M_IDX.subarray(M_OFF[i], M_OFF[i + 1]));
+    const key = ms.length ? ms.join(",") : "CMP";
+    let id = byKey.get(key);
+    if (id === undefined) {
+      id = CLUSTER_META.length;
+      byKey.set(key, id);
+      // Machine names all start with P05, so dropping it on the multi-machine
+      // labels buys room without losing anything. Past two names the label
+      // outgrows the box, so the rest become a count and the full set stays in
+      // the detail panel. This caps every label at 13 characters.
+      const short = ms.map(m => MACHINES[m].slice(3));
+      CLUSTER_META.push({
+        machines: ms,
+        cmp: ms.length === 0,
+        label: !ms.length ? "PURCHASED"
+          : ms.length === 1 ? MACHINES[ms[0]]
+          : ms.length === 2 ? short.join("+")
+          : short.slice(0, 2).join("+") + "+" + (ms.length - 2),
+        op: ms.length ? MOPS[ms[0]] : ""
+      });
+    }
+    CLUSTER[i] = id;
   }
 }
-
-// Effective cluster of each code. When machines are filtered, a code that runs
-// on one of them is drawn there rather than wherever the spread put it: ask
-// for a machine and you expect to see everything it makes.
-const CLUSTER = new Int32Array(N);
-function assignClusters(prefer) {
-  CLUSTER.set(PRIMARY);
-  if (!prefer || !prefer.size) return;
-  for (let i = 0; i < N; i++)
-    for (let e = M_OFF[i]; e < M_OFF[i + 1]; e++)
-      if (prefer.has(M_IDX[e])) { CLUSTER[i] = M_IDX[e]; break; }
-}
-assignClusters(null);
+const NC = CLUSTER_META.length;
 
 // Reverse index: machine -> the codes it produces.
 const MACH_NODES = Array.from({ length: NM }, () => []);
@@ -429,7 +438,7 @@ for (let i = 0; i < N; i++)
 const PX = new Float64Array(N), PY = new Float64Array(N);
 const INVIEW = new Uint8Array(N), LVL = new Int32Array(N);
 
-let view = { nodes: new Int32Array(0), edges: new Int32Array(0), big: false, r: 9, labels: true, clusters: [] };
+let view = { nodes: new Int32Array(0), edges: new Int32Array(0), big: false, r: 9, labels: true, clusters: [], banners: [] };
 let scope = { kind: "code", seeds: [], dir: "both", label: "" };
 let layoutMode = "tree", groupLinks = false, autoGroup = true;
 let selected = -1, hovered = -1;
@@ -468,7 +477,10 @@ function collect(seeds, dir) {
 /* ------------------------------------------------------------------ *
  * Layered layout: what ships on top, arrows pointing down
  * ------------------------------------------------------------------ */
-function layoutLayered(nodes, edges) {
+/** Fills LVL by longest path from the subgraph roots, so level 0 is whatever
+ *  nothing consumes. Shared by both layouts: the clustered one needs the same
+ *  depths to stack its blocks. */
+function topoLevels(nodes, edges) {
   const indeg = new Int32Array(N);
   for (let i = 0; i < edges.length; i += 2) indeg[edges[i + 1]]++;
   for (const n of nodes) LVL[n] = 0;
@@ -489,6 +501,11 @@ function layoutLayered(nodes, edges) {
 
   let maxLvl = 0;
   for (const n of nodes) if (LVL[n] > maxLvl) maxLvl = LVL[n];
+  return { order, maxLvl };
+}
+
+function layoutLayered(nodes, edges) {
+  const { order, maxLvl } = topoLevels(nodes, edges);
   const bands = Array.from({ length: maxLvl + 1 }, () => []);
   for (const n of order) bands[LVL[n]].push(n);
 
@@ -530,66 +547,106 @@ function layoutLayered(nodes, edges) {
     y += (rows - 1) * rowGap + bandGap;
   });
 
-  return { big, r: big ? 3.2 : 9, labels: !big, clusters: [] };
+  return { big, r: big ? 3.2 : 9, labels: !big, clusters: [], banners: [] };
 }
 
 /* ------------------------------------------------------------------ *
- * Clustered layout: one block per machine, plus one for purchased codes
+ * Clustered layout: one block per machine set, stacked by depth
  * ------------------------------------------------------------------ */
-function layoutClusters(nodes) {
-  const groups = new Map();          // cluster key -> codes
+function layoutClusters(nodes, edges) {
+  topoLevels(nodes, edges);
+
+  const groups = new Map();          // cluster id -> codes
   for (const n of nodes) {
     const g = CLUSTER[n];
     if (!groups.has(g)) groups.set(g, []);
     groups.get(g).push(n);
   }
-  // Reading order: the 0040 stage (P05M) first, then 0010 (P05P), and the
-  // purchased block last, since it is always the biggest.
-  const keys = [...groups.keys()].sort((a, b) => {
-    if (a === -1) return 1;
-    if (b === -1) return -1;
-    return MOPS[b].localeCompare(MOPS[a]) || MACHINES[a].localeCompare(MACHINES[b]);
-  });
 
-  // Minimum width so the machine name always fits. Without it, small boxes let
-  // their label spill over the block next door.
-  const gap = 15, pad = 20, head = 36, minW = 116;
-  const boxes = keys.map(key => {
-    const list = groups.get(key);
+  // Minimum width so the label always fits. Without it, small boxes let their
+  // label spill over the block next door.
+  const gap = 15, pad = 20, head = 36, minW = 142;
+  const boxes = [...groups].map(([id, list]) => {
+    const meta = CLUSTER_META[id];
     const cols = Math.max(1, Math.ceil(Math.sqrt(list.length * 1.25)));
     const rows = Math.ceil(list.length / cols);
+    let sum = 0;
+    for (const n of list) sum += LVL[n];
     return {
-      key, list, cols, rows,
+      id, list, cols, rows, meta,
+      level: sum / list.length,
       w: Math.max(minW, cols * gap + pad * 2),
       h: rows * gap + pad * 2 + head
     };
   });
 
-  // Shelf packing: boxes go left to right and wrap once they pass the target
-  // width, which comes from the total area so the whole thing lands roughly
-  // square.
-  const area = boxes.reduce((s, b) => s + b.w * b.h, 0);
-  const target = Math.max(...boxes.map(b => b.w), Math.sqrt(area * 1.7));
-  let cx = 0, cy = 0, shelf = 0;
-  const clusters = [];
-  for (const b of boxes) {
-    if (cx > 0 && cx + b.w > target) { cx = 0; cy += shelf + 26; shelf = 0; }
-    b.x = cx; b.y = cy;
-    shelf = Math.max(shelf, b.h);
-    cx += b.w + 26;
+  // Blocks are stacked by the mean depth of the codes inside them, so the
+  // machines that only turn out finished goods sit on top and the deepest bulks
+  // at the bottom. It is deliberately approximate: a block whose codes sit on
+  // several levels lands on their average.
+  const cmpBoxes = boxes.filter(b => b.meta.cmp);
+  const machBoxes = boxes.filter(b => !b.meta.cmp);
+  const bands = new Map();
+  for (const b of machBoxes) {
+    const L = Math.round(b.level);
+    if (!bands.has(L)) bands.set(L, []);
+    bands.get(L).push(b);
+  }
+  const levels = [...bands.keys()].sort((a, b) => a - b);
 
+  // Shelf packing inside each band: boxes go left to right, biggest first, and
+  // wrap once they pass the target width so the whole thing lands roughly
+  // square.
+  const area = machBoxes.reduce((s, b) => s + b.w * b.h, 0);
+  const target = Math.max(...boxes.map(b => b.w), Math.sqrt(area * 1.5));
+  const gapCol = 26, gapRow = 26, gapBand = 150;
+
+  const clusters = [];
+  const place = b => {
     const inset = (b.w - b.cols * gap) / 2;   // centre the grid in widened boxes
     b.list.forEach((n, i) => {
       PX[n] = b.x + inset + ((i % b.cols) + 0.5) * gap;
       PY[n] = b.y + head + pad + (((i / b.cols) | 0) + 0.5) * gap;
     });
     clusters.push({
-      x: b.x, y: b.y, w: b.w, h: b.h, n: b.list.length,
-      label: b.key === -1 ? "PURCHASED" : MACHINES[b.key],
-      sub: b.key === -1 ? `${b.list.length} codes` : `op ${MOPS[b.key]} · ${b.list.length}`
+      x: b.x, y: b.y, w: b.w, h: b.h,
+      label: b.meta.label,
+      sub: b.meta.cmp ? `${b.list.length} codes`
+        : `op ${b.meta.op} · ${b.meta.machines.length > 1 ? b.meta.machines.length + " mach · " : ""}${b.list.length}`
     });
+  };
+
+  let y = 0;
+  const banners = [];
+  for (const L of levels) {
+    const band = bands.get(L).sort((a, b) => b.list.length - a.list.length);
+    const top = y;
+    let x = 0, rowH = 0;
+    for (const b of band) {
+      if (x > 0 && x + b.w > target) { x = 0; y += rowH + gapRow; rowH = 0; }
+      b.x = x; b.y = y;
+      rowH = Math.max(rowH, b.h);
+      x += b.w + gapCol;
+      place(b);
+    }
+    y += rowH;
+    banners.push({ level: L, y: top, n: band.length, w: Math.max(target, x - gapCol) });
+    y += gapBand;
   }
-  return { big: nodes.length > 400, r: nodes.length > 400 ? 3.4 : 6, labels: false, clusters };
+  const stackBottom = Math.max(0, y - gapBand);
+
+  // Purchased codes hang off every level at once, so they get one block to the
+  // right of the stack rather than a place in it.
+  for (const b of cmpBoxes) {
+    b.x = target + 90;
+    b.y = Math.max(0, (stackBottom - b.h) / 2);
+    place(b);
+  }
+
+  return {
+    big: nodes.length > 400, r: nodes.length > 400 ? 3.4 : 6, labels: false,
+    clusters, banners
+  };
 }
 
 /* ================================================================== *
@@ -602,9 +659,11 @@ function setScope(kind, seeds, dir, label) {
   // One spare frame so the notice paints before the thread blocks.
   requestAnimationFrame(() => requestAnimationFrame(() => {
     const { nodes, edges } = collect(seeds, dir);
-    assignClusters(kind === "machines" ? pickedMachines : null);
-    if (autoGroup) groupLinks = nodes.length > 2500;
-    const L = layoutMode === "clusters" ? layoutClusters(nodes) : layoutLayered(nodes, edges);
+    // Clustered blocks sit far apart, so individual edges cross the whole
+    // drawing and pile into a grey mass much sooner than in the layered view.
+    if (autoGroup) groupLinks = nodes.length > 2500 ||
+      (layoutMode === "clusters" && edges.length / 2 > 2000);
+    const L = layoutMode === "clusters" ? layoutClusters(nodes, edges) : layoutLayered(nodes, edges);
     view = { nodes, edges, ...L };
     buildLinkGroups();
     buildGrid();
@@ -636,16 +695,15 @@ function buildLinkGroups() {
   for (let i = 0; i < view.edges.length; i += 2) {
     const a = CLUSTER[view.edges[i]], b = CLUSTER[view.edges[i + 1]];
     if (a === b) continue;
-    const key = a * (NM + 2) + b;
-    acc.set(key, (acc.get(key) || 0) + 1);
+    acc.set(a * NC + b, (acc.get(a * NC + b) || 0) + 1);
   }
   const flat = [];
-  for (const [key, c] of acc) flat.push(Math.floor(key / (NM + 2)), key % (NM + 2), c);
+  for (const [key, c] of acc) flat.push((key / NC) | 0, key % NC, c);
   view.linkGroups = flat;
   // Centre of each cluster, to anchor the bundled lines.
-  const cx = new Float64Array(NM + 1), cy = new Float64Array(NM + 1), cn = new Int32Array(NM + 1);
-  for (const n of view.nodes) { const g = CLUSTER[n] + 1; cx[g] += PX[n]; cy[g] += PY[n]; cn[g]++; }
-  for (let g = 0; g <= NM; g++) if (cn[g]) { cx[g] /= cn[g]; cy[g] /= cn[g]; }
+  const cx = new Float64Array(NC), cy = new Float64Array(NC), cn = new Int32Array(NC);
+  for (const n of view.nodes) { const g = CLUSTER[n]; cx[g] += PX[n]; cy[g] += PY[n]; cn[g]++; }
+  for (let g = 0; g < NC; g++) if (cn[g]) { cx[g] /= cn[g]; cy[g] /= cn[g]; }
   view.cx = cx; view.cy = cy;
 }
 
@@ -749,6 +807,14 @@ function draw() {
     for (let e = PA_OFF[focus]; e < PA_OFF[focus + 1]; e++) near.add(PA_IDX[e]);
   }
 
+  // Level rules first, under everything: a hairline stays visible at any zoom,
+  // whereas the banner text disappears once it drops below 5 real pixels.
+  ctx.strokeStyle = pal.clusterLine; ctx.lineWidth = 1 / k; ctx.globalAlpha = 1;
+  for (const b of view.banners) {
+    if (b.level === 0) continue;
+    ctx.beginPath(); ctx.moveTo(0, b.y - 76); ctx.lineTo(b.w, b.y - 76); ctx.stroke();
+  }
+
   // Cluster boxes.
   for (const c of view.clusters) {
     ctx.globalAlpha = 1;
@@ -761,10 +827,12 @@ function draw() {
     const L = view.linkGroups;
     let maxw = 1;
     for (let i = 2; i < L.length; i += 3) if (L[i] > maxw) maxw = L[i];
-    ctx.strokeStyle = pal.edge; ctx.globalAlpha = .5;
+    // Kept faint and thin: stacking the clusters by level made these lines long
+    // enough that a few hundred of them piled into a grey mass over the blocks.
+    ctx.strokeStyle = pal.edge; ctx.globalAlpha = .2;
     for (let i = 0; i < L.length; i += 3) {
-      const a = L[i] + 1, b = L[i + 1] + 1;
-      ctx.lineWidth = Math.max(0.6, (L[i + 2] / maxw) * 7) / k;
+      const a = L[i], b = L[i + 1];
+      ctx.lineWidth = Math.max(0.5, (L[i + 2] / maxw) * 3.5) / k;
       ctx.beginPath(); ctx.moveTo(view.cx[a], view.cy[a]); ctx.lineTo(view.cx[b], view.cy[b]); ctx.stroke();
     }
   } else {
@@ -786,7 +854,9 @@ function draw() {
       }
       ctx.stroke();
     };
-    pass(false, pal.edge, 1.1, near ? 0.26 : 0.8);
+    // Same reason: long edges between blocks need to be fainter than the short
+    // parent-to-child hops of the layered view.
+    pass(false, pal.edge, 1.1, near ? 0.24 : (view.clusters.length ? 0.3 : 0.8));
     if (near) pass(true, pal.hot, 1.9, 1);
 
     if (curve && k > 0.42) {
@@ -845,6 +915,10 @@ function draw() {
   // drawing them would only add noise.
   ctx.globalAlpha = 1; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
   if (k * 13 >= 5) {
+    // Level banner above each band, so the vertical order reads as depth.
+    ctx.fillStyle = pal.ink3; ctx.font = `600 13px ${pal.mono}`;
+    for (const b of view.banners)
+      ctx.fillText(`LEVEL ${b.level}${b.level === 0 ? " · ships" : ""}`, 0, b.y - 14);
     for (const c of view.clusters) {
       ctx.fillStyle = pal.ink2; ctx.font = `600 13px ${pal.mono}`;
       ctx.fillText(c.label, c.x + 14, c.y + 17);
