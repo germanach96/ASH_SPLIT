@@ -14,39 +14,26 @@
     --rule: #d3dee1;
     --rule-2: #e5edef;
 
-    --fg: #b8460f;         /* producto final */
-    --made: #0f766e;       /* componente fabricado */
-    --bought: #8896a2;     /* comprado */
+    --fg: #b8460f;
+    --made: #0f766e;
+    --bought: #8896a2;
     --fg-soft: #f5e2d8;
     --made-soft: #d8ebe8;
     --bought-soft: #e3e9ec;
 
     --edge: #b3c2c7;
     --edge-hot: #0f766e;
+    --cluster: #eaf0f2;
+    --cluster-line: #d9e3e6;
     --focus: #0f766e;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --ground: #080d0f;
-      --panel: #101a1d;
-      --panel-2: #162226;
-      --canvas-bg: #0b1315;
-      --ink: #e2ecef;
-      --ink-2: #9fb3ba;
-      --ink-3: #6c8189;
-      --rule: #213238;
-      --rule-2: #1a282d;
-
-      --fg: #e8763c;
-      --made: #3fb5a6;
-      --bought: #7d8f9a;
-      --fg-soft: #33200f;
-      --made-soft: #0e2d2b;
-      --bought-soft: #1b262a;
-
-      --edge: #2c4046;
-      --edge-hot: #3fb5a6;
-      --focus: #3fb5a6;
+      --ground: #080d0f; --panel: #101a1d; --panel-2: #162226; --canvas-bg: #0b1315;
+      --ink: #e2ecef; --ink-2: #9fb3ba; --ink-3: #6c8189; --rule: #213238; --rule-2: #1a282d;
+      --fg: #e8763c; --made: #3fb5a6; --bought: #7d8f9a;
+      --fg-soft: #33200f; --made-soft: #0e2d2b; --bought-soft: #1b262a;
+      --edge: #2c4046; --edge-hot: #3fb5a6; --cluster: #101b1f; --cluster-line: #1e2f35; --focus: #3fb5a6;
     }
   }
   :root[data-theme="dark"] {
@@ -54,14 +41,14 @@
     --ink: #e2ecef; --ink-2: #9fb3ba; --ink-3: #6c8189; --rule: #213238; --rule-2: #1a282d;
     --fg: #e8763c; --made: #3fb5a6; --bought: #7d8f9a;
     --fg-soft: #33200f; --made-soft: #0e2d2b; --bought-soft: #1b262a;
-    --edge: #2c4046; --edge-hot: #3fb5a6; --focus: #3fb5a6;
+    --edge: #2c4046; --edge-hot: #3fb5a6; --cluster: #101b1f; --cluster-line: #1e2f35; --focus: #3fb5a6;
   }
   :root[data-theme="light"] {
     --ground: #eef2f3; --panel: #ffffff; --panel-2: #f6f9fa; --canvas-bg: #f8fafb;
     --ink: #101a1e; --ink-2: #46585f; --ink-3: #7a8b93; --rule: #d3dee1; --rule-2: #e5edef;
     --fg: #b8460f; --made: #0f766e; --bought: #8896a2;
     --fg-soft: #f5e2d8; --made-soft: #d8ebe8; --bought-soft: #e3e9ec;
-    --edge: #b3c2c7; --edge-hot: #0f766e; --focus: #0f766e;
+    --edge: #b3c2c7; --edge-hot: #0f766e; --cluster: #eaf0f2; --cluster-line: #d9e3e6; --focus: #0f766e;
   }
 
   * { box-sizing: border-box; }
@@ -70,64 +57,80 @@
     font-family: var(--sans); font-size: 14px; line-height: 1.5;
     height: 100vh; overflow: hidden;
   }
-  #app { display: grid; grid-template-columns: 264px minmax(0,1fr) 268px; grid-template-rows: auto minmax(0,1fr); height: 100vh; }
+  #app { display: grid; grid-template-columns: 272px minmax(0,1fr) 272px; grid-template-rows: auto minmax(0,1fr); height: 100vh; }
 
-  /* ---------- barra superior ---------- */
   #bar {
-    grid-column: 1 / -1; display: flex; align-items: center; gap: 22px; flex-wrap: wrap;
+    grid-column: 1 / -1; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
     padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--rule);
   }
   #brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
   #brand b { font-family: var(--mono); font-size: 14px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
   #brand span { font-family: var(--mono); font-size: 11px; color: var(--ink-3); letter-spacing: .08em; }
-  .legend { display: flex; gap: 16px; flex-wrap: wrap; }
+  .legend { display: flex; gap: 15px; flex-wrap: wrap; }
   .lg { display: flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 11px; letter-spacing: .05em; color: var(--ink-2); white-space: nowrap; }
   .dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
   .dot.fg { background: var(--fg); }
   .dot.made { background: var(--made); }
   .dot.bought { background: var(--panel); border: 2px solid var(--bought); }
-  .tools { display: flex; gap: 6px; }
+  .tools { display: flex; gap: 6px; flex-wrap: wrap; }
+  .split { display: flex; border: 1px solid var(--rule); border-radius: 2px; overflow: hidden; }
+  .split button { border: 0; border-radius: 0; border-left: 1px solid var(--rule); }
+  .split button:first-child { border-left: 0; }
 
   button, select {
     font-family: var(--mono); font-size: 11px; letter-spacing: .07em; text-transform: uppercase;
     color: var(--ink-2); background: var(--panel-2); border: 1px solid var(--rule);
     border-radius: 2px; padding: 6px 11px; cursor: pointer;
   }
-  button:hover { border-color: var(--focus); color: var(--ink); }
-  button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+  button:hover:not(:disabled) { border-color: var(--focus); color: var(--ink); }
+  button:disabled { opacity: .42; cursor: default; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
   button[aria-pressed="true"] { background: var(--made-soft); border-color: var(--made); color: var(--ink); }
+  .split button[aria-pressed="true"] { border-left-color: var(--made); }
 
-  /* ---------- paneles laterales ---------- */
   aside { background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
   #left { border-right: 1px solid var(--rule); }
   #right { border-left: 1px solid var(--rule); }
   .sec { padding: 12px 14px; border-bottom: 1px solid var(--rule-2); }
-  .sec h2 {
-    margin: 0 0 9px; font-family: var(--mono); font-size: 10px; font-weight: 600;
-    letter-spacing: .16em; text-transform: uppercase; color: var(--ink-3);
+  .sec h2 { margin: 0 0 9px; font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-3); }
+
+  #tabs { display: flex; border-bottom: 1px solid var(--rule); }
+  #tabs button {
+    flex: 1; border: 0; border-radius: 0; border-bottom: 2px solid transparent;
+    background: none; padding: 11px 4px; font-size: 11px;
   }
-  #search {
+  #tabs button[aria-selected="true"] { border-bottom-color: var(--made); color: var(--ink); background: var(--panel-2); }
+
+  .pane { display: none; flex-direction: column; min-height: 0; flex: 1; }
+  .pane.on { display: flex; }
+  #search, #msearch {
     width: 100%; font-family: var(--mono); font-size: 12px; padding: 8px 10px;
-    color: var(--ink); background: var(--panel-2);
-    border: 1px solid var(--rule); border-radius: 2px;
+    color: var(--ink); background: var(--panel-2); border: 1px solid var(--rule); border-radius: 2px;
   }
-  #search::placeholder { color: var(--ink-3); }
+  #search::placeholder, #msearch::placeholder { color: var(--ink-3); }
   .filters { display: flex; gap: 5px; margin-top: 8px; }
   .filters button { flex: 1; padding: 5px 2px; }
 
-  #list { flex: 1; overflow-y: auto; min-height: 0; padding: 4px 0 12px; }
+  .scroller { flex: 1; overflow-y: auto; min-height: 0; padding: 4px 0 14px; }
   .row {
     display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
     padding: 6px 14px; border: 0; border-left: 2px solid transparent; border-radius: 0;
     background: none; text-transform: none; letter-spacing: .02em; font-size: 12px;
-    color: var(--ink); cursor: pointer;
+    font-family: var(--mono); color: var(--ink); cursor: pointer;
   }
   .row:hover { background: var(--panel-2); border-left-color: var(--rule); }
-  .row[aria-current="true"] { background: var(--made-soft); border-left-color: var(--made); }
+  .row[aria-current="true"], .row[aria-pressed="true"] { background: var(--made-soft); border-left-color: var(--made); }
   .row .meta { margin-left: auto; font-size: 10px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
-  #count { padding: 8px 14px; font-family: var(--mono); font-size: 10px; letter-spacing: .08em; color: var(--ink-3); }
+  .tick {
+    width: 13px; height: 13px; flex: none; border: 1px solid var(--rule); border-radius: 2px;
+    display: grid; place-items: center; font-size: 9px; color: var(--panel); background: var(--panel-2);
+  }
+  .row[aria-pressed="true"] .tick { background: var(--made); border-color: var(--made); }
+  .op { font-size: 10px; color: var(--ink-3); }
+  .count { padding: 8px 14px; font-family: var(--mono); font-size: 10px; letter-spacing: .08em; color: var(--ink-3); }
+  .bulk { display: flex; gap: 5px; margin-top: 8px; }
+  .bulk button { flex: 1; padding: 5px 2px; }
 
-  /* ---------- lienzo ---------- */
   #stage { position: relative; background: var(--canvas-bg); min-width: 0; }
   canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
   canvas.grabbing { cursor: grabbing; }
@@ -138,7 +141,7 @@
     pointer-events: none; text-transform: uppercase;
   }
   #scope {
-    position: absolute; left: 14px; top: 12px; max-width: min(460px, calc(100% - 28px));
+    position: absolute; left: 14px; top: 12px; max-width: min(520px, calc(100% - 28px));
     font-family: var(--mono); font-size: 11px; color: var(--ink-2);
     background: color-mix(in srgb, var(--panel) 88%, transparent);
     border: 1px solid var(--rule); border-radius: 2px; padding: 7px 11px; pointer-events: none;
@@ -151,37 +154,29 @@
   }
   #busy.on { display: grid; }
 
-  /* ---------- detalle ---------- */
   #detail { flex: 1; overflow-y: auto; min-height: 0; }
   #dcode { font-family: var(--mono); font-size: 17px; font-weight: 700; word-break: break-all; margin: 0 0 8px; }
-  .badge {
-    display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono);
-    font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
-    padding: 4px 9px; border-radius: 2px;
-  }
+  .badge { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; padding: 4px 9px; border-radius: 2px; }
   .badge.fg { background: var(--fg-soft); color: var(--fg); }
   .badge.made { background: var(--made-soft); color: var(--made); }
   .badge.bought { background: var(--bought-soft); color: var(--ink-2); }
-  .kv { display: grid; grid-template-columns: 1fr auto; gap: 5px 10px; font-size: 12px; }
+  .kv { display: grid; grid-template-columns: 1fr auto; gap: 5px 10px; font-size: 12px; margin: 0; }
   .kv dt { color: var(--ink-2); }
   .kv dd { margin: 0; font-family: var(--mono); font-variant-numeric: tabular-nums; }
   .chips { display: flex; flex-wrap: wrap; gap: 5px; }
-  .chip {
-    font-family: var(--mono); font-size: 11px; padding: 3px 7px; border-radius: 2px;
-    background: var(--panel-2); border: 1px solid var(--rule); color: var(--ink-2);
-  }
+  .chip { font-family: var(--mono); font-size: 11px; padding: 3px 7px; border-radius: 2px; background: var(--panel-2); border: 1px solid var(--rule); color: var(--ink-2); }
   .chip i { font-style: normal; color: var(--ink-3); }
   .acts { display: flex; flex-direction: column; gap: 6px; }
   .acts button { text-align: left; }
   .empty { font-size: 12.5px; color: var(--ink-3); margin: 0; }
   .note { font-size: 11.5px; color: var(--ink-3); margin: 8px 0 0; line-height: 1.45; }
 
-  @media (max-width: 1080px) {
+  @media (max-width: 1120px) {
     body { overflow: auto; height: auto; }
-    #app { grid-template-columns: 1fr; grid-template-rows: auto auto minmax(420px, 62vh) auto; height: auto; }
+    #app { grid-template-columns: 1fr; grid-template-rows: auto auto minmax(430px, 62vh) auto; height: auto; }
     aside { border: 0; border-top: 1px solid var(--rule); }
-    #left { order: 3; } #stage { order: 2; min-height: 420px; } #right { order: 4; }
-    #list { max-height: 300px; }
+    #left { order: 3; } #stage { order: 2; min-height: 430px; } #right { order: 4; }
+    .scroller { max-height: 300px; }
   }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -195,24 +190,48 @@
       <span class="lg"><i class="dot bought"></i>Comprado</span>
     </div>
     <div class="tools">
-      <button id="btn-fit" title="Encajar el grafo en la vista">Encajar</button>
-      <button id="btn-relayout" title="Recolocar los puntos movidos">Recolocar</button>
-      <button id="btn-all" title="Dibujar los 7.176 códigos de golpe">Toda la fábrica</button>
+      <div class="split" role="group" aria-label="Colocación">
+        <button id="lay-tree" aria-pressed="true">Jerarquía</button>
+        <button id="lay-clu" aria-pressed="false">Clusters</button>
+      </div>
+      <button id="btn-links" aria-pressed="false" title="Resumir los enlaces entre clusters en una sola línea por par">Agrupar enlaces</button>
+      <button id="btn-fit">Encajar</button>
+      <button id="btn-relayout">Recolocar</button>
+      <button id="btn-all">Toda la fábrica</button>
     </div>
   </header>
 
   <aside id="left">
-    <div class="sec">
-      <h2>Buscar código</h2>
-      <input id="search" type="search" placeholder="99200005400, TRM020642…" autocomplete="off" spellcheck="false" />
-      <div class="filters">
-        <button data-filter="0" aria-pressed="true">Finales</button>
-        <button data-filter="1" aria-pressed="false">Fabricados</button>
-        <button data-filter="2" aria-pressed="false">Comprados</button>
-      </div>
+    <div id="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-pane="codes">Códigos</button>
+      <button role="tab" aria-selected="false" data-pane="machines">Máquinas</button>
     </div>
-    <div id="count"></div>
-    <div id="list" role="listbox" aria-label="Códigos de material"></div>
+
+    <div class="pane on" id="pane-codes">
+      <div class="sec">
+        <input id="search" type="search" placeholder="99200005400, TRM020642…" autocomplete="off" spellcheck="false" aria-label="Buscar código" />
+        <div class="filters">
+          <button data-filter="0" aria-pressed="true">Finales</button>
+          <button data-filter="1" aria-pressed="false">Fabricados</button>
+          <button data-filter="2" aria-pressed="false">Comprados</button>
+        </div>
+      </div>
+      <div class="count" id="ccount"></div>
+      <div class="scroller" id="clist"></div>
+    </div>
+
+    <div class="pane" id="pane-machines">
+      <div class="sec">
+        <input id="msearch" type="search" placeholder="P05M0565…" autocomplete="off" spellcheck="false" aria-label="Buscar máquina" />
+        <div class="bulk">
+          <button data-bulk="0040">Todas 0040</button>
+          <button data-bulk="0010">Todas 0010</button>
+          <button data-bulk="none">Limpiar</button>
+        </div>
+      </div>
+      <div class="count" id="mcount"></div>
+      <div class="scroller" id="mlist"></div>
+    </div>
   </aside>
 
   <main id="stage">
@@ -223,7 +242,7 @@
       <span>Arrastra un punto para moverlo</span>
       <span>Arrastra el fondo para desplazar</span>
       <span>Rueda para zoom</span>
-      <span>Clic en un punto para ver detalle</span>
+      <span>Clic para ver el código</span>
     </div>
   </main>
 
@@ -237,14 +256,15 @@
 "use strict";
 const DATA = /*__DATA__*/;
 
-/* ------------------------------------------------------------------ *
+/* ================================================================== *
  * Modelo
- * ------------------------------------------------------------------ */
+ * ================================================================== */
 const CODES = DATA.codes;
 const N = CODES.length;
-const CH_OFF = DATA.ch_off, CH_IDX = DATA.ch_idx;      // hijos (componentes)
+const CH_OFF = Int32Array.from(DATA.ch_off), CH_IDX = Int32Array.from(DATA.ch_idx);
 const MACHINES = DATA.machines, MOPS = DATA.machine_ops;
-const M_OFF = DATA.mach_off, M_IDX = DATA.mach_idx;
+const M_OFF = Int32Array.from(DATA.mach_off), M_IDX = Int32Array.from(DATA.mach_idx);
+const NM = MACHINES.length;
 
 // Padres derivados de los hijos: evita duplicar 48.756 índices en el fichero.
 const PA_OFF = new Int32Array(N + 1), PA_IDX = new Int32Array(CH_IDX.length);
@@ -256,97 +276,144 @@ const PA_OFF = new Int32Array(N + 1), PA_IDX = new Int32Array(CH_IDX.length);
   for (let p = 0; p < N; p++)
     for (let e = CH_OFF[p]; e < CH_OFF[p + 1]; e++) PA_IDX[cur[CH_IDX[e]]++] = p;
 }
-
-const children = i => CH_IDX.slice(CH_OFF[i], CH_OFF[i + 1]);
-const parents  = i => Array.from(PA_IDX.slice(PA_OFF[i], PA_OFF[i + 1]));
 const nCh = i => CH_OFF[i + 1] - CH_OFF[i];
 const nPa = i => PA_OFF[i + 1] - PA_OFF[i];
-const machinesOf = i => Array.from(M_IDX.slice(M_OFF[i], M_OFF[i + 1]));
+const machinesOf = i => Array.from(M_IDX.subarray(M_OFF[i], M_OFF[i + 1]));
 
 // 0 = producto final · 1 = fabricado y consumido · 2 = comprado.
-// "Producible" sale de la pestaña RATE: tener máquina asignada.
+// "Producible" sale de RATE: tener máquina asignada.
 const KIND = new Uint8Array(N);
 for (let i = 0; i < N; i++) {
   const producible = M_OFF[i + 1] > M_OFF[i];
   KIND[i] = !producible ? 2 : (nPa(i) === 0 ? 0 : 1);
 }
+
+// 1.525 de los 3.925 códigos producibles salen en varias máquinas, así que un
+// cluster por máquina obliga a elegir una. Quedarse con la primera dejaría 17
+// máquinas sin un solo punto; repartiendo cada código a la máquina que menos
+// lleve, las 63 aparecen en el mapa.
+const PRIMARY = new Int32Array(N).fill(-1);
+{
+  const load = new Int32Array(NM);
+  const orden = [];
+  for (let i = 0; i < N; i++) if (M_OFF[i + 1] > M_OFF[i]) orden.push(i);
+  orden.sort((a, b) => (M_OFF[a + 1] - M_OFF[a]) - (M_OFF[b + 1] - M_OFF[b]) || a - b);
+  for (const i of orden) {
+    let best = M_IDX[M_OFF[i]];
+    for (let e = M_OFF[i] + 1; e < M_OFF[i + 1]; e++) if (load[M_IDX[e]] < load[best]) best = M_IDX[e];
+    PRIMARY[i] = best; load[best]++;
+  }
+}
+
+// Cluster efectivo de cada código. Al filtrar por máquinas, un código que salga
+// en una de las elegidas se dibuja en esa, no en la que le tocase por reparto:
+// si pides una máquina, esperas ver ahí todo lo que produce.
+const CLUSTER = new Int32Array(N);
+function assignClusters(prefer) {
+  CLUSTER.set(PRIMARY);
+  if (!prefer || !prefer.size) return;
+  for (let i = 0; i < N; i++)
+    for (let e = M_OFF[i]; e < M_OFF[i + 1]; e++)
+      if (prefer.has(M_IDX[e])) { CLUSTER[i] = M_IDX[e]; break; }
+}
+assignClusters(null);
 const KIND_NAME = ["Producto final", "Fabricado en Ashford", "Comprado"];
 const KIND_CLASS = ["fg", "made", "bought"];
 
-/* ------------------------------------------------------------------ *
- * Vista: subgrafo + colocación en capas
- * ------------------------------------------------------------------ */
-const css = k => getComputedStyle(document.documentElement).getPropertyValue(k).trim();
+// Índice inverso máquina -> códigos que produce.
+const MACH_NODES = Array.from({ length: NM }, () => []);
+for (let i = 0; i < N; i++)
+  for (let e = M_OFF[i]; e < M_OFF[i + 1]; e++) MACH_NODES[M_IDX[e]].push(i);
 
-let view = { nodes: [], edges: [], pos: null, big: false, r: 8, labels: true };
-let scope = { roots: [], dir: "down", label: "" };
+/* ================================================================== *
+ * Estado de la vista
+ *
+ * Posiciones y pertenencia viven en arrays tipados indexados por código
+ * global: con 48.756 aristas, un Map por nodo se nota en cada repintado.
+ * ================================================================== */
+const PX = new Float64Array(N), PY = new Float64Array(N);
+const INVIEW = new Uint8Array(N), LVL = new Int32Array(N);
+
+let view = { nodes: new Int32Array(0), edges: new Int32Array(0), big: false, r: 9, labels: true, clusters: [] };
+let scope = { kind: "code", seeds: [], dir: "both", label: "" };
+let layoutMode = "tree", groupLinks = false, autoGroup = true;
 let selected = -1, hovered = -1;
 
-function collect(roots, dir) {
-  const seen = new Uint8Array(N), out = [];
-  const stack = roots.slice();
-  for (const r of roots) seen[r] = 1;
-  while (stack.length) {
-    const n = stack.pop(); out.push(n);
-    const next = dir === "down" ? children(n) : parents(n);
-    for (const m of next) if (!seen[m]) { seen[m] = 1; stack.push(m); }
-  }
-  // Aristas inducidas: siempre padre -> hijo, para que las flechas bajen.
+/** Cierre transitivo hacia arriba (consumidores) y/o hacia abajo (componentes). */
+function collect(seeds, dir) {
+  INVIEW.fill(0);
+  const out = [];
+  const walk = (off, idx) => {
+    const stack = seeds.slice();
+    for (const s of seeds) if (!INVIEW[s]) { INVIEW[s] = 1; out.push(s); }
+    while (stack.length) {
+      const n = stack.pop();
+      for (let e = off[n]; e < off[n + 1]; e++) {
+        const m = idx[e];
+        if (!INVIEW[m]) { INVIEW[m] = 1; out.push(m); stack.push(m); }
+      }
+    }
+  };
+  // Hacia arriba primero, para que todo alcance a sus productos finales.
+  if (dir !== "down") walk(PA_OFF, PA_IDX);
+  if (dir !== "up") walk(CH_OFF, CH_IDX);
+
   const edges = [];
   for (const n of out)
-    for (const c of children(n)) if (seen[c]) edges.push([n, c]);
-  return { nodes: out, edges, inSet: seen };
+    for (let e = CH_OFF[n]; e < CH_OFF[n + 1]; e++) if (INVIEW[CH_IDX[e]]) edges.push(n, CH_IDX[e]);
+  return { nodes: Int32Array.from(out), edges: Int32Array.from(edges) };
 }
 
-/** Capas por camino más largo desde las raíces del subgrafo (grafo acíclico). */
-function layout(nodes, edges) {
-  const pos = new Map(), lvl = new Map(), indeg = new Map(), adj = new Map();
-  for (const n of nodes) { lvl.set(n, 0); indeg.set(n, 0); adj.set(n, []); }
-  for (const [p, c] of edges) { adj.get(p).push(c); indeg.set(c, indeg.get(c) + 1); }
+/* ------------------------------------------------------------------ *
+ * Colocación en capas: productos finales arriba, flechas hacia abajo
+ * ------------------------------------------------------------------ */
+function layoutLayered(nodes, edges) {
+  const indeg = new Int32Array(N);
+  for (let i = 0; i < edges.length; i += 2) indeg[edges[i + 1]]++;
+  for (const n of nodes) LVL[n] = 0;
 
-  const q = nodes.filter(n => indeg.get(n) === 0);
-  const deg = new Map(indeg), order = [];
-  while (q.length) {
-    const n = q.shift(); order.push(n);
-    for (const c of adj.get(n)) {
-      if (lvl.get(c) < lvl.get(n) + 1) lvl.set(c, lvl.get(n) + 1);
-      deg.set(c, deg.get(c) - 1);
-      if (deg.get(c) === 0) q.push(c);
+  const deg = Int32Array.from(indeg);
+  const queue = [], order = [];
+  for (const n of nodes) if (deg[n] === 0) queue.push(n);
+  for (let h = 0; h < queue.length; h++) {
+    const n = queue[h]; order.push(n);
+    for (let e = CH_OFF[n]; e < CH_OFF[n + 1]; e++) {
+      const c = CH_IDX[e];
+      if (!INVIEW[c]) continue;
+      if (LVL[c] < LVL[n] + 1) LVL[c] = LVL[n] + 1;
+      if (--deg[c] === 0) queue.push(c);
     }
   }
+  for (const n of nodes) if (order.length < nodes.length && deg[n] > 0) order.push(n);
 
-  const maxLvl = Math.max(0, ...lvl.values());
+  let maxLvl = 0;
+  for (const n of nodes) if (LVL[n] > maxLvl) maxLvl = LVL[n];
   const bands = Array.from({ length: maxLvl + 1 }, () => []);
-  for (const n of order) bands[lvl.get(n)].push(n);
+  for (const n of order) bands[LVL[n]].push(n);
 
-  // Barrido baricéntrico para reducir cruces: cada nodo se acerca a la media
-  // de sus vecinos en la capa contigua.
-  const rank = new Map();
-  const reindex = () => bands.forEach(b => b.forEach((n, i) => rank.set(n, i)));
-  const mean = (n, dir) => {
-    const nb = (dir === "up" ? parents(n) : children(n)).filter(m => rank.has(m));
-    return nb.length ? nb.reduce((s, m) => s + rank.get(m), 0) / nb.length : rank.get(n);
+  // Barrido baricéntrico: cada nodo se acerca a la media de sus vecinos
+  // en la capa contigua, lo que reduce cruces de flechas.
+  const rank = new Int32Array(N).fill(-1);
+  const reindex = () => bands.forEach(b => b.forEach((n, i) => rank[n] = i));
+  const mean = (n, off, idx) => {
+    let s = 0, c = 0;
+    for (let e = off[n]; e < off[n + 1]; e++) { const m = idx[e]; if (rank[m] >= 0) { s += rank[m]; c++; } }
+    return c ? s / c : rank[n];
   };
   reindex();
   const sweeps = nodes.length > 3000 ? 1 : 4;
   for (let s = 0; s < sweeps; s++) {
-    for (let L = 1; L <= maxLvl; L++) {
-      bands[L].sort((a, b) => mean(a, "up") - mean(b, "up")); reindex();
-    }
-    for (let L = maxLvl - 1; L >= 0; L--) {
-      bands[L].sort((a, b) => mean(a, "down") - mean(b, "down")); reindex();
-    }
+    for (let L = 1; L <= maxLvl; L++) { bands[L].sort((a, b) => mean(a, PA_OFF, PA_IDX) - mean(b, PA_OFF, PA_IDX)); reindex(); }
+    for (let L = maxLvl - 1; L >= 0; L--) { bands[L].sort((a, b) => mean(a, CH_OFF, CH_IDX) - mean(b, CH_OFF, CH_IDX)); reindex(); }
   }
 
-  // Un nivel puede tener cientos de nodos (una lista suele abrirse en un abanico
-  // de 30 comprados). Dejarlos en una sola fila estira tanto el dibujo que las
-  // etiquetas dejan de leerse, asi que los niveles anchos se reparten en varias
-  // filas. La separacion entre niveles es mayor que entre filas de un mismo
-  // nivel, para que la jerarquia se siga leyendo de arriba abajo.
+  // Un nivel puede abrirse en un abanico de decenas de comprados. En una sola
+  // fila el dibujo se estira hasta que las etiquetas dejan de leerse, así que
+  // los niveles anchos se reparten en varias filas. La separación entre
+  // niveles es mayor que entre filas de un mismo nivel: la jerarquía se sigue
+  // leyendo de arriba abajo.
   const big = nodes.length > 400;
-  const xgap = big ? 24 : 128;
-  const rowGap = big ? 34 : 62;
-  const bandGap = big ? 190 : 132;
+  const xgap = big ? 24 : 128, rowGap = big ? 34 : 62, bandGap = big ? 190 : 132;
   const perRow = bands.map(b => Math.max(1, Math.min(b.length, Math.ceil(Math.sqrt(b.length * 2.6)))));
   const width = Math.max(...bands.map((b, i) => Math.min(b.length, perRow[i]))) * xgap;
 
@@ -354,52 +421,153 @@ function layout(nodes, edges) {
   bands.forEach((band, L) => {
     const cols = perRow[L], rows = Math.ceil(band.length / cols);
     band.forEach((n, i) => {
-      const row = Math.floor(i / cols), col = i % cols;
+      const row = (i / cols) | 0, col = i % cols;
       const len = Math.min(cols, band.length - row * cols);
-      const off = (width - len * xgap) / 2;
-      pos.set(n, { x: off + col * xgap + xgap / 2, y: y + row * rowGap });
+      PX[n] = (width - len * xgap) / 2 + col * xgap + xgap / 2;
+      PY[n] = y + row * rowGap;
     });
     y += (rows - 1) * rowGap + bandGap;
   });
 
-  return { pos, lvl, big, r: big ? 3.2 : 9, labels: !big };
+  return { big, r: big ? 3.2 : 9, labels: !big, clusters: [] };
 }
 
-function setScope(roots, dir, label) {
-  scope = { roots, dir, label };
+/* ------------------------------------------------------------------ *
+ * Colocación en clusters: un bloque por máquina, más uno de comprados
+ * ------------------------------------------------------------------ */
+function layoutClusters(nodes) {
+  const groups = new Map();          // clave de cluster -> códigos
+  for (const n of nodes) {
+    const g = CLUSTER[n];
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g).push(n);
+  }
+  // Orden de lectura: primero la etapa 0040 (P05M), luego la 0010 (P05P) y al
+  // final el bloque de comprados, que es siempre el más grande.
+  const keys = [...groups.keys()].sort((a, b) => {
+    if (a === -1) return 1;
+    if (b === -1) return -1;
+    return MOPS[b].localeCompare(MOPS[a]) || MACHINES[a].localeCompare(MACHINES[b]);
+  });
+
+  // Ancho mínimo para que el nombre de la máquina quepa siempre: si no, las
+  // cajas pequeñas dejan el rótulo asomando sobre la de al lado.
+  const gap = 15, pad = 20, head = 36, minW = 116;
+  const boxes = keys.map(key => {
+    const list = groups.get(key);
+    const cols = Math.max(1, Math.ceil(Math.sqrt(list.length * 1.25)));
+    const rows = Math.ceil(list.length / cols);
+    return {
+      key, list, cols, rows,
+      w: Math.max(minW, cols * gap + pad * 2),
+      h: rows * gap + pad * 2 + head
+    };
+  });
+
+  // Empaquetado por estanterías: se van colocando de izquierda a derecha y se
+  // salta de fila al pasar del ancho objetivo, que sale del área total para
+  // que el conjunto quede aproximadamente cuadrado.
+  const area = boxes.reduce((s, b) => s + b.w * b.h, 0);
+  const target = Math.max(...boxes.map(b => b.w), Math.sqrt(area * 1.7));
+  let cx = 0, cy = 0, shelf = 0;
+  const clusters = [];
+  for (const b of boxes) {
+    if (cx > 0 && cx + b.w > target) { cx = 0; cy += shelf + 26; shelf = 0; }
+    b.x = cx; b.y = cy;
+    shelf = Math.max(shelf, b.h);
+    cx += b.w + 26;
+
+    const inset = (b.w - b.cols * gap) / 2;   // centra la retícula en cajas ensanchadas
+    b.list.forEach((n, i) => {
+      PX[n] = b.x + inset + ((i % b.cols) + 0.5) * gap;
+      PY[n] = b.y + head + pad + (((i / b.cols) | 0) + 0.5) * gap;
+    });
+    clusters.push({
+      x: b.x, y: b.y, w: b.w, h: b.h, n: b.list.length,
+      label: b.key === -1 ? "COMPRADOS" : MACHINES[b.key],
+      sub: b.key === -1 ? `${b.list.length} códigos` : `op ${MOPS[b.key]} · ${b.list.length}`
+    });
+  }
+  return { big: nodes.length > 400, r: nodes.length > 400 ? 3.4 : 6, labels: false, clusters };
+}
+
+/* ================================================================== *
+ * Aplicar un alcance
+ * ================================================================== */
+function setScope(kind, seeds, dir, label) {
+  scope = { kind, seeds, dir, label };
   const busy = document.getElementById("busy");
   busy.classList.add("on");
   // Un frame de respiro para que se pinte el aviso antes de bloquear el hilo.
   requestAnimationFrame(() => requestAnimationFrame(() => {
-    const { nodes, edges } = collect(roots, dir);
-    const L = layout(nodes, edges);
+    const { nodes, edges } = collect(seeds, dir);
+    assignClusters(kind === "machines" ? pickedMachines : null);
+    if (autoGroup) groupLinks = nodes.length > 2500;
+    const L = layoutMode === "clusters" ? layoutClusters(nodes) : layoutLayered(nodes, edges);
     view = { nodes, edges, ...L };
+    buildLinkGroups();
+    buildGrid();
     busy.classList.remove("on");
+    syncTools();
     describeScope();
     fit();
-    renderList();
-    // El detalle se pinta antes de recalcular la vista, asi que su nivel
-    // seguiria siendo el del grafo anterior.
     if (selected >= 0) select(selected);
   }));
 }
 
 function describeScope() {
-  const kinds = [0, 0, 0];
-  for (const n of view.nodes) kinds[KIND[n]]++;
+  const k = [0, 0, 0];
+  for (const n of view.nodes) k[KIND[n]]++;
+  const links = groupLinks && view.linkGroups
+    ? `${view.linkGroups.length / 3} enlaces agrupados`
+    : `${view.edges.length / 2} enlaces`;
   document.getElementById("scope").innerHTML =
-    `<b>${scope.label}</b> — ${view.nodes.length} códigos, ${view.edges.length} enlaces` +
-    ` · ${kinds[0]} finales, ${kinds[1]} fabricados, ${kinds[2]} comprados`;
+    `<b>${scope.label}</b> — ${view.nodes.length} códigos, ${links}` +
+    ` · ${k[0]} finales, ${k[1]} fabricados, ${k[2]} comprados`;
 }
 
-/* ------------------------------------------------------------------ *
+/** Resume las aristas entre clusters en una sola línea por par, con grosor
+ *  según cuántas relaciones agrupa. Es lo que hace ligero el mapa completo. */
+function buildLinkGroups() {
+  if (!groupLinks) { view.linkGroups = null; return; }
+  const acc = new Map();
+  for (let i = 0; i < view.edges.length; i += 2) {
+    const a = CLUSTER[view.edges[i]], b = CLUSTER[view.edges[i + 1]];
+    if (a === b) continue;
+    const key = a * (NM + 2) + b;
+    acc.set(key, (acc.get(key) || 0) + 1);
+  }
+  const flat = [];
+  for (const [key, c] of acc) flat.push(Math.floor(key / (NM + 2)), key % (NM + 2), c);
+  view.linkGroups = flat;
+  // Centro de cada cluster, para anclar las líneas agrupadas.
+  const cx = new Float64Array(NM + 1), cy = new Float64Array(NM + 1), cn = new Int32Array(NM + 1);
+  for (const n of view.nodes) { const g = CLUSTER[n] + 1; cx[g] += PX[n]; cy[g] += PY[n]; cn[g]++; }
+  for (let g = 0; g <= NM; g++) if (cn[g]) { cx[g] /= cn[g]; cy[g] /= cn[g]; }
+  view.cx = cx; view.cy = cy;
+}
+
+/* ================================================================== *
  * Lienzo
- * ------------------------------------------------------------------ */
+ * ================================================================== */
 const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
 let k = 1, tx = 0, ty = 0, dpr = 1;
 
+let pal = {};
+function readPalette() {
+  const s = getComputedStyle(document.documentElement);
+  const g = p => s.getPropertyValue(p).trim();
+  pal = {
+    fg: g("--fg"), made: g("--made"), bought: g("--bought"), bg: g("--canvas-bg"),
+    edge: g("--edge"), hot: g("--edge-hot"), ink: g("--ink"), ink2: g("--ink-2"), ink3: g("--ink-3"),
+    cluster: g("--cluster"), clusterLine: g("--cluster-line"), mono: g("--mono")
+  };
+}
+
 function resize() {
-  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  // Con decenas de miles de aristas, pintar a 2x cuadruplica el relleno sin
+  // aportar nada: los puntos ya son de 3 px.
+  dpr = Math.min(window.devicePixelRatio || 1, view.big ? 1.25 : 2);
   const r = cv.getBoundingClientRect();
   cv.width = Math.max(1, Math.round(r.width * dpr));
   cv.height = Math.max(1, Math.round(r.height * dpr));
@@ -411,11 +579,10 @@ function fit() {
   if (!view.nodes.length) return;
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const n of view.nodes) {
-    const p = view.pos.get(n);
-    x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x);
-    y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y);
+    if (PX[n] < x0) x0 = PX[n]; if (PX[n] > x1) x1 = PX[n];
+    if (PY[n] < y0) y0 = PY[n]; if (PY[n] > y1) y1 = PY[n];
   }
-  const pad = 70;
+  const pad = 74;
   k = Math.min((r.width - pad * 2) / Math.max(1, x1 - x0), (r.height - pad * 2) / Math.max(1, y1 - y0));
   k = Math.max(0.006, Math.min(k, 1.6));
   tx = r.width / 2 - ((x0 + x1) / 2) * k;
@@ -423,14 +590,43 @@ function fit() {
   draw();
 }
 
-/** Aristas incidentes al nodo activo, para resaltar sin recalcular el grafo. */
-function hotSet() {
-  const focus = hovered >= 0 ? hovered : selected;
-  if (focus < 0) return null;
-  const s = new Set([focus]);
-  for (const c of children(focus)) s.add(c);
-  for (const p of parents(focus)) s.add(p);
-  return { focus, near: s };
+/* --- rejilla espacial: buscar el punto bajo el cursor sin recorrer 7.176 --- */
+let grid = null;
+function buildGrid() {
+  const nodes = view.nodes;
+  if (!nodes.length) { grid = null; return; }
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const n of nodes) {
+    if (PX[n] < x0) x0 = PX[n]; if (PX[n] > x1) x1 = PX[n];
+    if (PY[n] < y0) y0 = PY[n]; if (PY[n] > y1) y1 = PY[n];
+  }
+  const cell = Math.max(12, Math.sqrt(((x1 - x0) * (y1 - y0)) / Math.max(1, nodes.length)) * 2);
+  const cols = Math.max(1, Math.ceil((x1 - x0 + 1) / cell)), rows = Math.max(1, Math.ceil((y1 - y0 + 1) / cell));
+  const buckets = Array.from({ length: cols * rows }, () => []);
+  for (const n of nodes) {
+    const c = Math.min(cols - 1, ((PX[n] - x0) / cell) | 0), r = Math.min(rows - 1, ((PY[n] - y0) / cell) | 0);
+    buckets[r * cols + c].push(n);
+  }
+  grid = { x0, y0, cell, cols, rows, buckets };
+}
+
+function nodeAt(cx, cy) {
+  if (!grid) return -1;
+  const r = cv.getBoundingClientRect();
+  const wx = (cx - r.left - tx) / k, wy = (cy - r.top - ty) / k;
+  const reach = Math.max(view.r, 8 / k), reach2 = reach * reach;
+  const c0 = Math.max(0, ((wx - reach - grid.x0) / grid.cell) | 0);
+  const c1 = Math.min(grid.cols - 1, ((wx + reach - grid.x0) / grid.cell) | 0);
+  const r0 = Math.max(0, ((wy - reach - grid.y0) / grid.cell) | 0);
+  const r1 = Math.min(grid.rows - 1, ((wy + reach - grid.y0) / grid.cell) | 0);
+  let best = -1, bd = Infinity;
+  for (let rr = r0; rr <= r1; rr++)
+    for (let cc = c0; cc <= c1; cc++)
+      for (const n of grid.buckets[rr * grid.cols + cc]) {
+        const dx = PX[n] - wx, dy = PY[n] - wy, d = dx * dx + dy * dy;
+        if (d <= reach2 && d < bd) { bd = d; best = n; }
+      }
+  return best;
 }
 
 function draw() {
@@ -438,101 +634,129 @@ function draw() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, r.width, r.height);
   if (!view.nodes.length) return;
-
   ctx.setTransform(k * dpr, 0, 0, k * dpr, tx * dpr, ty * dpr);
-  const pos = view.pos, R = view.r, hot = hotSet();
-  const arrows = !view.big && k > 0.42;
 
-  // Todas las aristas frías en un solo trazo: es lo que mantiene fluidas las
-  // 48.756 líneas del mapa completo.
-  const cold = [], warm = [];
-  for (const e of view.edges) (hot && (e[0] === hot.focus || e[1] === hot.focus) ? warm : cold).push(e);
+  const R = view.r, focus = hovered >= 0 ? hovered : selected;
+  const near = focus >= 0 ? new Set([focus]) : null;
+  if (near) {
+    for (let e = CH_OFF[focus]; e < CH_OFF[focus + 1]; e++) near.add(CH_IDX[e]);
+    for (let e = PA_OFF[focus]; e < PA_OFF[focus + 1]; e++) near.add(PA_IDX[e]);
+  }
 
-  const stroke = (list, color, width, alpha) => {
-    if (!list.length) return;
-    ctx.globalAlpha = alpha; ctx.strokeStyle = color; ctx.lineWidth = width / k;
-    ctx.beginPath();
-    for (const [a, b] of list) {
-      const p = pos.get(a), q = pos.get(b);
-      ctx.moveTo(p.x, p.y + R);
-      if (view.big) ctx.lineTo(q.x, q.y - R);
-      else {
-        const m = (q.y - p.y) * 0.42;
-        ctx.bezierCurveTo(p.x, p.y + R + m, q.x, q.y - R - m, q.x, q.y - R);
-      }
+  // Cajas de cluster.
+  for (const c of view.clusters) {
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = pal.cluster; ctx.strokeStyle = pal.clusterLine; ctx.lineWidth = 1 / k;
+    ctx.beginPath(); ctx.rect(c.x, c.y, c.w, c.h); ctx.fill(); ctx.stroke();
+  }
+
+  if (groupLinks && view.linkGroups) {
+    // Una línea por par de clusters, de grosor proporcional a las relaciones.
+    const L = view.linkGroups;
+    let maxw = 1;
+    for (let i = 2; i < L.length; i += 3) if (L[i] > maxw) maxw = L[i];
+    ctx.strokeStyle = pal.edge; ctx.globalAlpha = .5;
+    for (let i = 0; i < L.length; i += 3) {
+      const a = L[i] + 1, b = L[i + 1] + 1;
+      ctx.lineWidth = Math.max(0.6, (L[i + 2] / maxw) * 7) / k;
+      ctx.beginPath(); ctx.moveTo(view.cx[a], view.cy[a]); ctx.lineTo(view.cx[b], view.cy[b]); ctx.stroke();
     }
-    ctx.stroke();
-    if (arrows) {
-      ctx.globalAlpha = alpha; ctx.fillStyle = color;
+  } else {
+    // Dos pasadas sobre las aristas sin construir listas intermedias: con
+    // 48.756 aristas, reservar arrays en cada repintado se nota.
+    const E = view.edges, curve = !view.big && !view.clusters.length;
+    const pass = (wantHot, color, width, alpha) => {
+      ctx.globalAlpha = alpha; ctx.strokeStyle = color; ctx.lineWidth = width / k;
       ctx.beginPath();
-      for (const [, b] of list) {
-        const q = pos.get(b), h = 7 / k, w = 4 / k;
-        ctx.moveTo(q.x, q.y - R); ctx.lineTo(q.x - w, q.y - R - h); ctx.lineTo(q.x + w, q.y - R - h);
+      for (let i = 0; i < E.length; i += 2) {
+        const a = E[i], b = E[i + 1];
+        const hot = near ? (a === focus || b === focus) : false;
+        if (hot !== wantHot) continue;
+        ctx.moveTo(PX[a], PY[a] + R);
+        if (curve) {
+          const m = (PY[b] - PY[a]) * 0.42;
+          ctx.bezierCurveTo(PX[a], PY[a] + R + m, PX[b], PY[b] - R - m, PX[b], PY[b] - R);
+        } else ctx.lineTo(PX[b], PY[b] - R);
+      }
+      ctx.stroke();
+    };
+    pass(false, pal.edge, 1.1, near ? 0.26 : 0.8);
+    if (near) pass(true, pal.hot, 1.9, 1);
+
+    if (curve && k > 0.42) {
+      ctx.globalAlpha = 1; ctx.fillStyle = pal.edge; ctx.beginPath();
+      for (let i = 0; i < E.length; i += 2) {
+        const b = E[i + 1], h = 7 / k, w = 4 / k;
+        ctx.moveTo(PX[b], PY[b] - R); ctx.lineTo(PX[b] - w, PY[b] - R - h); ctx.lineTo(PX[b] + w, PY[b] - R - h);
       }
       ctx.fill();
     }
-  };
-  stroke(cold, css("--edge"), 1.1, hot ? 0.3 : 0.85);
-  stroke(warm, css("--edge-hot"), 1.9, 1);
+  }
 
-  // Nodos.
-  const cols = [css("--fg"), css("--made"), css("--bought")];
-  const bg = css("--canvas-bg");
+  // Puntos.
+  const cols = [pal.fg, pal.made, pal.bought];
   ctx.lineWidth = 2 / k;
   for (const n of view.nodes) {
-    const p = pos.get(n), kind = KIND[n];
-    const dim = hot && !hot.near.has(n);
-    ctx.globalAlpha = dim ? 0.28 : 1;
+    const dim = near && !near.has(n);
+    ctx.globalAlpha = dim ? 0.26 : 1;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, n === selected ? R * 1.45 : R, 0, 6.2832);
-    if (kind === 2) { ctx.fillStyle = bg; ctx.fill(); ctx.strokeStyle = cols[2]; ctx.stroke(); }
-    else { ctx.fillStyle = cols[kind]; ctx.fill(); }
-    if (n === selected || n === hovered) {
-      ctx.strokeStyle = css("--ink"); ctx.lineWidth = 2 / k; ctx.stroke();
+    ctx.arc(PX[n], PY[n], n === selected ? R * 1.5 : R, 0, 6.2832);
+    if (KIND[n] === 2) { ctx.fillStyle = pal.bg; ctx.fill(); ctx.strokeStyle = cols[2]; ctx.stroke(); }
+    else { ctx.fillStyle = cols[KIND[n]]; ctx.fill(); }
+    if (n === selected || n === hovered) { ctx.strokeStyle = pal.ink; ctx.stroke(); }
+  }
+
+  // Rótulos de cluster y códigos del grafo van en unidades del mundo, no de
+  // pantalla: así encogen con el zoom junto a la caja que los contiene y nunca
+  // se montan sobre el bloque de al lado. Por debajo de 5 px reales no se leen,
+  // y dibujarlos solo sería ruido.
+  ctx.globalAlpha = 1; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  if (k * 13 >= 5) {
+    for (const c of view.clusters) {
+      ctx.fillStyle = pal.ink2; ctx.font = `600 13px ${pal.mono}`;
+      ctx.fillText(c.label, c.x + 14, c.y + 17);
+      ctx.fillStyle = pal.ink3; ctx.font = `10px ${pal.mono}`;
+      ctx.fillText(c.sub, c.x + 14, c.y + 30);
     }
   }
 
-  // Etiquetas: solo con pocos nodos y zoom suficiente para leerlas.
-  if (view.labels && k > 0.3) {
-    ctx.globalAlpha = 1;
-    ctx.font = `${11 / k}px ${css("--mono") || "monospace"}`;
-    ctx.textAlign = "center"; ctx.textBaseline = "top";
+  // Códigos: todos mientras el grafo sea pequeño; en los grandes solo el punto
+  // activo, que es lo que mantiene ligero el mapa completo.
+  ctx.textAlign = "center"; ctx.textBaseline = "top";
+  if (view.labels && k * 11 >= 5) {
+    ctx.font = `11px ${pal.mono}`;
     for (const n of view.nodes) {
-      const p = pos.get(n);
-      ctx.globalAlpha = hot && !hot.near.has(n) ? 0.3 : 1;
-      ctx.fillStyle = n === selected || n === hovered ? css("--ink") : css("--ink-2");
-      ctx.fillText(CODES[n], p.x, p.y + R + 6 / k);
+      ctx.globalAlpha = near && !near.has(n) ? 0.3 : 1;
+      ctx.fillStyle = n === selected || n === hovered ? pal.ink : pal.ink2;
+      ctx.fillText(CODES[n], PX[n], PY[n] + R + 6);
+    }
+  } else {
+    // Sin etiquetas fijas, el punto activo se rotula como llamada a tamaño
+    // constante, para que se lea igual de cerca que de lejos.
+    ctx.font = `${12 / k}px ${pal.mono}`;
+    for (const n of [selected, hovered]) {
+      if (n < 0 || !INVIEW[n]) continue;
+      const w = ctx.measureText(CODES[n]).width;
+      ctx.globalAlpha = .9; ctx.fillStyle = pal.bg;
+      ctx.fillRect(PX[n] - w / 2 - 4 / k, PY[n] + R + 4 / k, w + 8 / k, 15 / k);
+      ctx.globalAlpha = 1; ctx.fillStyle = pal.ink;
+      ctx.fillText(CODES[n], PX[n], PY[n] + R + 6 / k);
     }
   }
   ctx.globalAlpha = 1;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
-/* ------------------------------------------------------------------ *
+/* ================================================================== *
  * Interacción
- * ------------------------------------------------------------------ */
-const toWorld = (cx, cy) => {
-  const r = cv.getBoundingClientRect();
-  return { x: (cx - r.left - tx) / k, y: (cy - r.top - ty) / k };
-};
-
-function nodeAt(cx, cy) {
-  const w = toWorld(cx, cy), grab = Math.max(view.r, 7 / k), g2 = grab * grab;
-  let best = -1, bd = Infinity;
-  for (const n of view.nodes) {
-    const p = view.pos.get(n), dx = p.x - w.x, dy = p.y - w.y, d = dx * dx + dy * dy;
-    if (d <= g2 && d < bd) { bd = d; best = n; }
-  }
-  return best;
-}
-
+ * ================================================================== */
 let drag = null;
 cv.addEventListener("pointerdown", ev => {
   cv.setPointerCapture(ev.pointerId);
   const n = nodeAt(ev.clientX, ev.clientY);
   if (n >= 0) {
-    const w = toWorld(ev.clientX, ev.clientY), p = view.pos.get(n);
-    drag = { node: n, dx: p.x - w.x, dy: p.y - w.y, moved: false };
+    const r = cv.getBoundingClientRect();
+    drag = { node: n, dx: PX[n] - (ev.clientX - r.left - tx) / k, dy: PY[n] - (ev.clientY - r.top - ty) / k, moved: false };
   } else {
     drag = { node: -1, x: ev.clientX - tx, y: ev.clientY - ty, moved: false };
     cv.classList.add("grabbing");
@@ -542,8 +766,9 @@ cv.addEventListener("pointermove", ev => {
   if (drag) {
     drag.moved = true;
     if (drag.node >= 0) {
-      const w = toWorld(ev.clientX, ev.clientY);
-      view.pos.set(drag.node, { x: w.x + drag.dx, y: w.y + drag.dy });
+      const r = cv.getBoundingClientRect();
+      PX[drag.node] = (ev.clientX - r.left - tx) / k + drag.dx;
+      PY[drag.node] = (ev.clientY - r.top - ty) / k + drag.dy;
     } else { tx = ev.clientX - drag.x; ty = ev.clientY - drag.y; }
     draw();
     return;
@@ -552,49 +777,48 @@ cv.addEventListener("pointermove", ev => {
   cv.classList.toggle("on-node", n >= 0);
   if (n !== hovered) { hovered = n; draw(); }
 });
-function endDrag(ev) {
-  if (drag && drag.node >= 0 && !drag.moved) select(drag.node);
-  else if (drag && drag.node < 0 && !drag.moved) select(-1);
+function endDrag() {
+  if (drag && !drag.moved) select(drag.node);
+  else if (drag && drag.node >= 0) buildGrid();
   drag = null; cv.classList.remove("grabbing");
 }
 cv.addEventListener("pointerup", endDrag);
 cv.addEventListener("pointercancel", endDrag);
 cv.addEventListener("pointerleave", () => { if (hovered !== -1) { hovered = -1; draw(); } });
-
 cv.addEventListener("wheel", ev => {
   ev.preventDefault();
   const r = cv.getBoundingClientRect(), mx = ev.clientX - r.left, my = ev.clientY - r.top;
-  const f = Math.exp(-ev.deltaY * 0.0016), nk = Math.max(0.004, Math.min(6, k * f));
+  const nk = Math.max(0.004, Math.min(6, k * Math.exp(-ev.deltaY * 0.0016)));
   tx = mx - (mx - tx) * (nk / k); ty = my - (my - ty) * (nk / k); k = nk;
   draw();
 }, { passive: false });
 
-/* ------------------------------------------------------------------ *
+/* ================================================================== *
  * Panel de detalle
- * ------------------------------------------------------------------ */
+ * ================================================================== */
 function select(n) {
   selected = n;
   const box = document.getElementById("detail");
   if (n < 0) {
-    box.innerHTML = `<div class="sec"><p class="empty">Elige un código en la lista o pincha un punto del grafo.</p>
+    box.innerHTML = `<div class="sec"><p class="empty">Elige un código o una máquina en el panel izquierdo, o pincha un punto del grafo.</p>
       <p class="note">Los puntos huecos son materiales que Ashford compra: no tienen máquina en la pestaña RATE
       y por eso no cuelga nada de ellos.</p></div>`;
     draw(); return;
   }
-  const kind = KIND[n], ms = machinesOf(n);
-  const inView = view.pos.has(n);
+  const ms = machinesOf(n);
   box.innerHTML = `
     <div class="sec">
       <p id="dcode">${CODES[n]}</p>
-      <span class="badge ${KIND_CLASS[kind]}"><i class="dot ${KIND_CLASS[kind]}"></i>${KIND_NAME[kind]}</span>
+      <span class="badge ${KIND_CLASS[KIND[n]]}"><i class="dot ${KIND_CLASS[KIND[n]]}"></i>${KIND_NAME[KIND[n]]}</span>
     </div>
     <div class="sec">
       <h2>Estructura</h2>
       <dl class="kv">
         <dt>Componentes directos</dt><dd>${nCh(n)}</dd>
         <dt>Lo consumen</dt><dd>${nPa(n)} código${nPa(n) === 1 ? "" : "s"}</dd>
-        <dt>Árbol completo</dt><dd>${subtreeSize(n)}</dd>
-        ${inView ? `<dt>Nivel en la vista</dt><dd>${view.lvl.get(n)}</dd>` : ""}
+        <dt>Explosión completa</dt><dd>${reach(n, CH_OFF, CH_IDX)}</dd>
+        <dt>Productos finales encima</dt><dd>${finalesEncima(n)}</dd>
+        ${INVIEW[n] ? `<dt>Nivel en la vista</dt><dd>${LVL[n]}</dd>` : ""}
       </dl>
     </div>
     <div class="sec">
@@ -606,81 +830,156 @@ function select(n) {
     <div class="sec">
       <h2>Explorar</h2>
       <div class="acts">
-        <button data-act="down"${nCh(n) ? "" : " disabled"}>Explotar desde aquí</button>
-        <button data-act="up"${nPa(n) ? "" : " disabled"}>Ver dónde se usa</button>
+        <button data-act="both">Contexto completo</button>
+        <button data-act="down"${nCh(n) ? "" : " disabled"}>Solo la explosión</button>
+        <button data-act="up"${nPa(n) ? "" : " disabled"}>Solo dónde se usa</button>
       </div>
+      <p class="note">El contexto completo sube hasta los productos finales que lo llevan y baja hasta sus materias primas.</p>
     </div>`;
   box.querySelectorAll("[data-act]").forEach(b => b.onclick = () => {
     const d = b.dataset.act;
-    setScope([n], d, d === "down" ? `Explosión de ${CODES[n]}` : `Dónde se usa ${CODES[n]}`);
+    setScope("code", [n], d,
+      d === "both" ? `Contexto de ${CODES[n]}` : d === "down" ? `Explosión de ${CODES[n]}` : `Dónde se usa ${CODES[n]}`);
   });
   draw();
 }
 
-const subCache = new Map();
-function subtreeSize(n) {
-  if (subCache.has(n)) return subCache.get(n);
+const reachCache = new Map();
+function reach(n, off, idx) {
+  const key = n * 2 + (off === CH_OFF ? 0 : 1);
+  if (reachCache.has(key)) return reachCache.get(key);
   const seen = new Uint8Array(N), st = [n]; seen[n] = 1; let c = 0;
-  while (st.length) { const x = st.pop(); c++; for (const m of children(x)) if (!seen[m]) { seen[m] = 1; st.push(m); } }
-  subCache.set(n, c); return c;
+  while (st.length) {
+    const x = st.pop(); c++;
+    for (let e = off[x]; e < off[x + 1]; e++) if (!seen[idx[e]]) { seen[idx[e]] = 1; st.push(idx[e]); }
+  }
+  reachCache.set(key, c); return c;
+}
+function finalesEncima(n) {
+  const seen = new Uint8Array(N), st = [n]; seen[n] = 1; let c = 0;
+  while (st.length) {
+    const x = st.pop();
+    if (KIND[x] === 0) c++;
+    for (let e = PA_OFF[x]; e < PA_OFF[x + 1]; e++) if (!seen[PA_IDX[e]]) { seen[PA_IDX[e]] = 1; st.push(PA_IDX[e]); }
+  }
+  return c;
 }
 
-/* ------------------------------------------------------------------ *
- * Lista lateral
- * ------------------------------------------------------------------ */
-const search = document.getElementById("search");
-const listEl = document.getElementById("list");
-let filters = new Set([0]);
+/* ================================================================== *
+ * Panel izquierdo
+ * ================================================================== */
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#tabs button").forEach(x => x.setAttribute("aria-selected", x === b));
+  document.querySelectorAll(".pane").forEach(p => p.classList.toggle("on", p.id === "pane-" + b.dataset.pane));
+});
 
+/* --- códigos --- */
+const search = document.getElementById("search");
+let kindFilters = new Set([0]);
 document.querySelectorAll("[data-filter]").forEach(b => b.onclick = () => {
   const f = +b.dataset.filter;
-  if (filters.has(f)) filters.delete(f); else filters.add(f);
-  if (!filters.size) filters.add(f);
-  document.querySelectorAll("[data-filter]").forEach(x =>
-    x.setAttribute("aria-pressed", filters.has(+x.dataset.filter)));
-  renderList();
+  if (kindFilters.has(f)) kindFilters.delete(f); else kindFilters.add(f);
+  if (!kindFilters.size) kindFilters.add(f);
+  document.querySelectorAll("[data-filter]").forEach(x => x.setAttribute("aria-pressed", kindFilters.has(+x.dataset.filter)));
+  renderCodes();
 });
-search.addEventListener("input", renderList);
+search.addEventListener("input", renderCodes);
 
-function renderList() {
-  const q = search.value.trim().toUpperCase();
-  const hits = [];
+function renderCodes() {
+  const q = search.value.trim().toUpperCase(), hits = [];
   for (let i = 0; i < N && hits.length < 400; i++)
-    if (filters.has(KIND[i]) && (!q || CODES[i].toUpperCase().includes(q))) hits.push(i);
-
-  document.getElementById("count").textContent =
+    if (kindFilters.has(KIND[i]) && (!q || CODES[i].includes(q))) hits.push(i);
+  document.getElementById("ccount").textContent =
     hits.length >= 400 ? "primeros 400 resultados" : `${hits.length} código${hits.length === 1 ? "" : "s"}`;
-
-  listEl.innerHTML = hits.map(i => `
-    <button class="row" data-i="${i}" role="option" aria-current="${scope.roots[0] === i}">
+  const list = document.getElementById("clist");
+  list.innerHTML = hits.map(i => `
+    <button class="row" data-i="${i}" aria-current="${scope.kind === "code" && scope.seeds[0] === i}">
       <i class="dot ${KIND_CLASS[KIND[i]]}"></i>${CODES[i]}
       <span class="meta">${nCh(i) ? nCh(i) + " comp." : "—"}</span>
     </button>`).join("");
-
-  listEl.querySelectorAll(".row").forEach(b => b.onclick = () => {
+  list.querySelectorAll(".row").forEach(b => b.onclick = () => {
     const i = +b.dataset.i;
+    layoutMode = "tree";
     select(i);
-    if (nCh(i)) setScope([i], "down", `Explosión de ${CODES[i]}`);
-    else setScope([i], "up", `Dónde se usa ${CODES[i]}`);
+    setScope("code", [i], "both", `Contexto de ${CODES[i]}`);
   });
 }
 
-/* ------------------------------------------------------------------ *
- * Arranque
- * ------------------------------------------------------------------ */
+/* --- máquinas --- */
+const msearch = document.getElementById("msearch");
+let pickedMachines = new Set();
+msearch.addEventListener("input", renderMachines);
+document.querySelectorAll("[data-bulk]").forEach(b => b.onclick = () => {
+  const w = b.dataset.bulk;
+  pickedMachines = new Set();
+  if (w !== "none") for (let m = 0; m < NM; m++) if (MOPS[m] === w) pickedMachines.add(m);
+  renderMachines();
+  applyMachines();
+});
+
+function renderMachines() {
+  const q = msearch.value.trim().toUpperCase();
+  const hits = [];
+  for (let m = 0; m < NM; m++) if (!q || MACHINES[m].includes(q)) hits.push(m);
+  hits.sort((a, b) => MACH_NODES[b].length - MACH_NODES[a].length);
+  document.getElementById("mcount").textContent =
+    `${hits.length} de ${NM} a la vista · ${pickedMachines.size} seleccionada${pickedMachines.size === 1 ? "" : "s"}`;
+  const list = document.getElementById("mlist");
+  list.innerHTML = hits.map(m => `
+    <button class="row" data-m="${m}" aria-pressed="${pickedMachines.has(m)}">
+      <i class="tick">✓</i>${MACHINES[m]} <span class="op">op ${MOPS[m]}</span>
+      <span class="meta">${MACH_NODES[m].length}</span>
+    </button>`).join("");
+  list.querySelectorAll(".row").forEach(b => b.onclick = () => {
+    const m = +b.dataset.m;
+    if (pickedMachines.has(m)) pickedMachines.delete(m); else pickedMachines.add(m);
+    renderMachines();
+    applyMachines();
+  });
+}
+
+function applyMachines() {
+  if (!pickedMachines.size) return;
+  const seeds = [...new Set([].concat(...[...pickedMachines].map(m => MACH_NODES[m])))];
+  const names = [...pickedMachines].map(m => MACHINES[m]).sort();
+  layoutMode = "clusters";
+  setScope("machines", seeds, "both",
+    names.length === 1 ? `Máquina ${names[0]}` : `${names.length} máquinas: ${names.slice(0, 3).join(", ")}${names.length > 3 ? "…" : ""}`);
+}
+
+/* ================================================================== *
+ * Barra de herramientas
+ * ================================================================== */
+function syncTools() {
+  document.getElementById("lay-tree").setAttribute("aria-pressed", layoutMode === "tree");
+  document.getElementById("lay-clu").setAttribute("aria-pressed", layoutMode === "clusters");
+  document.getElementById("btn-links").setAttribute("aria-pressed", groupLinks);
+}
+const relayout = () => setScope(scope.kind, scope.seeds, scope.dir, scope.label);
+document.getElementById("lay-tree").onclick = () => { layoutMode = "tree"; relayout(); };
+document.getElementById("lay-clu").onclick = () => { layoutMode = "clusters"; relayout(); };
+document.getElementById("btn-links").onclick = () => { autoGroup = false; groupLinks = !groupLinks; relayout(); };
 document.getElementById("btn-fit").onclick = fit;
-document.getElementById("btn-relayout").onclick = () => setScope(scope.roots, scope.dir, scope.label);
+document.getElementById("btn-relayout").onclick = relayout;
 document.getElementById("btn-all").onclick = () => {
-  const roots = [];
-  for (let i = 0; i < N; i++) if (KIND[i] === 0) roots.push(i);
-  setScope(roots, "down", "Toda la fábrica");
+  layoutMode = "clusters";
+  const seeds = [];
+  for (let i = 0; i < N; i++) if (KIND[i] === 0) seeds.push(i);
+  setScope("all", seeds, "down", "Toda la fábrica");
 };
 
+/* ================================================================== *
+ * Arranque
+ * ================================================================== */
+readPalette();
 new ResizeObserver(resize).observe(document.getElementById("stage"));
-matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
-new MutationObserver(draw).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+const onTheme = () => { readPalette(); draw(); };
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", onTheme);
+new MutationObserver(onTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
+renderCodes();
+renderMachines();
 select(-1);
-setScope([DATA.start], "down", `Explosión de ${CODES[DATA.start]}`);
+setScope("code", [DATA.start], "both", `Contexto de ${CODES[DATA.start]}`);
 resize();
 </script>
