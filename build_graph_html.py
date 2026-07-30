@@ -23,6 +23,7 @@ import pandas as pd
 
 XLSX = "Ashford split 2.xlsx"
 TEMPLATE = "graph_template.html"
+NOMBRES = "machine_names.tsv"
 SALIDA = "ashford_bom_graph.html"
 
 
@@ -47,6 +48,15 @@ def main():
     midx = {m: i for i, m in enumerate(maquinas)}
     ops = rate.drop_duplicates("MachineId").set_index("MachineId").OperationNo
     machine_ops = [ops[m] for m in maquinas]
+
+    # Nombre real de cada maquina. La tabla cubre mas maquinas de las que
+    # aparecen en RATE; una que no estuviera en ella se queda con su id.
+    tabla = pd.read_csv(NOMBRES, sep="\t", dtype=str)
+    por_id = dict(zip(tabla.MachineId, tabla.Description))
+    machine_names = [por_id.get(m, m) for m in maquinas]
+    sin_nombre = [m for m in maquinas if m not in por_id]
+    if sin_nombre:
+        print(f"  aviso: {len(sin_nombre)} maquinas sin nombre en {NOMBRES}: {sin_nombre[:5]}")
 
     por_codigo = defaultdict(set)
     for maq, prod in zip(rate.MachineId, rate.ProductID):
@@ -97,6 +107,7 @@ def main():
         "ch_off": ch_off,
         "ch_idx": ch_idx,
         "machines": maquinas,
+        "machine_names": machine_names,
         "machine_ops": machine_ops,
         "mach_off": mach_off,
         "mach_idx": mach_idx,
@@ -114,6 +125,7 @@ def main():
     print(f"{SALIDA} — {len(html) / 1024:.0f} KB")
     print(f"  {len(codes)} nodos | {len(ch_idx)} aristas | {len(maquinas)} maquinas")
     print("  " + " | ".join(f"{reparto[c]} {c}" for c in ("FG", "BLK", "WIP", "CMP")))
+    print(f"  {len(maquinas) - len(sin_nombre)}/{len(maquinas)} maquinas con nombre real")
     print(f"  arranque: {codes[inicio]} ({len(hijos[inicio])} componentes directos)")
 
 

@@ -149,6 +149,12 @@
   }
   .row[aria-pressed="true"] .tick { background: var(--blk); border-color: var(--blk); }
   .op { font-size: 10px; color: var(--ink-3); }
+  /* Real machine names run to 26 characters, so the row stacks: the name in
+     full on top, the id and operation under it. */
+  .row.mrow { align-items: flex-start; padding-top: 7px; padding-bottom: 7px; }
+  .mcol { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .mcol b { font-weight: 600; font-size: 12px; line-height: 1.25; }
+  .mcol span { font-size: 10px; color: var(--ink-3); white-space: nowrap; }
   .count { padding: 8px 14px; font-family: var(--mono); font-size: 10px; letter-spacing: .08em; color: var(--ink-3); }
   .bulk { display: flex; gap: 5px; margin-top: 8px; }
   .bulk button { flex: 1; padding: 5px 2px; }
@@ -275,6 +281,7 @@
       </div>
       <button id="btn-links" aria-pressed="false" title="Sum the links between two clusters into a single line">Bundle links</button>
       <button id="btn-multi" class="pick" aria-pressed="false" title="Drag across the canvas to enclose points in a rectangle">Box select</button>
+      <button id="btn-chain" class="pick" aria-pressed="false" title="Click a code to select everything it connects to, all the way up and all the way down">Select related</button>
       <button id="btn-edit" class="pick" aria-pressed="false" title="Drag a block to move its frame, or the bottom-right corner to resize it. The codes stay put.">Edit blocks</button>
       <span id="picked"></span>
       <button id="btn-fit">Fit</button>
@@ -385,6 +392,7 @@ const CODES = DATA.codes;
 const N = CODES.length;
 const CH_OFF = Int32Array.from(DATA.ch_off), CH_IDX = Int32Array.from(DATA.ch_idx);
 const MACHINES = DATA.machines, MOPS = DATA.machine_ops;
+const MNAMES = DATA.machine_names;   // real name of each machine, id as fallback
 const M_OFF = Int32Array.from(DATA.mach_off), M_IDX = Int32Array.from(DATA.mach_idx);
 const NM = MACHINES.length;
 
@@ -456,7 +464,7 @@ const CLUSTER_META = [];
       CLUSTER_META.push({
         machines: ms,
         cmp: ms.length === 0,
-        names: ms.length ? ms.map(m => MACHINES[m]) : ["PURCHASED"],
+        names: ms.length ? ms.map(m => MNAMES[m]) : ["PURCHASED"],
         op: ms.length ? MOPS[ms[0]] : ""
       });
     }
@@ -488,8 +496,12 @@ let selected = -1, hovered = -1;
 // scope does not lose what is already marked, which is what you expect from a
 // selection that accumulates.
 const MARKED = new Uint8Array(N);
-let nMarked = 0, multiMode = false, band = null;
-let editMode = false;
+let nMarked = 0, band = null;
+
+// One canvas mode at a time. Three independent flags needed pairwise turning-off
+// and it was easy to leave two on at once; a single value makes it impossible.
+let canvasMode = "none";          // none | box | chain | edit
+let multiMode = false, editMode = false, chainMode = false;
 const GRIP = 7;   // half-width of the resize grip, in screen pixels
 
 /* Ownership. The class shows as the ring around a point and the owner as its
@@ -630,17 +642,22 @@ const LABEL_FONT = "600 13px", SUB_FONT = "10px";
 const ruler = document.createElement("canvas").getContext("2d");
 const textW = (t, font) => { ruler.font = `${font} ${pal.mono || "monospace"}`; return ruler.measureText(t).width; };
 
-/** Packs the machine names into as many lines as the block width allows. A
- *  trailing "+" marks a line that carries on below. */
+/** One machine per line, and a name too long for the width wraps on its spaces.
+ *  A trailing "+" marks that another machine follows below. Real names run to 26
+ *  characters, well past any sensible block width, so wrapping inside a name is
+ *  what keeps the box from having to grow sideways. */
 function wrapNames(names, maxW) {
   const lines = [];
-  let cur = "";
-  for (const n of names) {
-    const join = cur ? cur + "+" + n : n;
-    if (cur && textW(join, LABEL_FONT) > maxW) { lines.push(cur + "+"); cur = n; }
-    else cur = join;
-  }
-  if (cur) lines.push(cur);
+  names.forEach((name, i) => {
+    const tail = i < names.length - 1 ? "+" : "";
+    let cur = "";
+    for (const word of name.split(" ")) {
+      const join = cur ? cur + " " + word : word;
+      if (cur && textW(join, LABEL_FONT) > maxW) { lines.push(cur); cur = word; }
+      else cur = join;
+    }
+    lines.push(cur + tail);
+  });
   return lines;
 }
 
@@ -685,7 +702,7 @@ function layoutClusters(nodes, edges) {
   }
 
   // Minimum width so the sub line and one machine name always fit.
-  const gap = 15, pad = 20, minW = 124;
+  const gap = 15, pad = 20, minW = 140;
   const boxes = [...groups.values()].map(g => {
     const cols = Math.max(1, Math.ceil(Math.sqrt(g.list.length * 1.25)));
     let sum = 0;
@@ -1140,6 +1157,7 @@ cv.addEventListener("pointerdown", ev => {
     else if ((box = clusterAt(w.x, w.y))) mode = "box";
     else mode = "pan";
   }
+  else if (chainMode) mode = "pan";   // the click is handled on release
   else if (multiMode) mode = (n >= 0 && MARKED[n]) ? "block" : "band";
   else mode = n >= 0 ? "node" : "pan";
 
@@ -1207,7 +1225,8 @@ function endDrag() {
   if (!drag.moved) {
     // A click with no movement marks or unmarks; outside box-select mode it only
     // changes which point the detail panel shows.
-    if (multiMode && drag.node >= 0) setMark(drag.node, !MARKED[drag.node]);
+    if (chainMode && drag.node >= 0) markChain(drag.node);
+    else if (multiMode && drag.node >= 0) setMark(drag.node, !MARKED[drag.node]);
     select(drag.node);
   } else if (drag.mode === "band") markInBand();
   else if (drag.mode === "node" || drag.mode === "block") buildGrid();
@@ -1239,6 +1258,28 @@ function markInBand() {
     if (sx >= x0 && sx <= x1 && sy >= y0 && sy <= y1) { MARKED[n] = 1; nMarked++; added++; }
   }
   if (added) renderSelection();
+}
+
+/** Marks a code and everything it connects to: every code that consumes it, all
+ *  the way up to what ships, and every code it is made of, all the way down.
+ *  Not the whole connected component — through shared purchased materials that
+ *  is the entire factory, all 7,176 codes in one piece. */
+function markChain(seed) {
+  const walk = (off, idx) => {
+    const stack = [seed], seen = new Set([seed]);
+    while (stack.length) {
+      const n = stack.pop();
+      if (!MARKED[n]) { MARKED[n] = 1; nMarked++; }
+      for (let e = off[n]; e < off[n + 1]; e++) {
+        const m = idx[e];
+        if (!seen.has(m)) { seen.add(m); stack.push(m); }
+      }
+    }
+  };
+  walk(PA_OFF, PA_IDX);
+  walk(CH_OFF, CH_IDX);
+  renderSelection();
+  draw();
 }
 
 function clearMarks() {
@@ -1373,7 +1414,7 @@ function select(n) {
     <div class="sec">
       <h2>Made on</h2>
       ${ms.length
-        ? `<div class="chips">${ms.map(m => `<span class="chip">${MACHINES[m]} <i>op ${MOPS[m]}</i></span>`).join("")}</div>`
+        ? `<div class="chips">${ms.map(m => `<span class="chip">${MNAMES[m]} <i>${MACHINES[m]} · op ${MOPS[m]}</i></span>`).join("")}</div>`
         : `<p class="empty">No machine assigned. Ashford buys this one.</p>`}
     </div>
     <div class="sec">
@@ -1473,14 +1514,16 @@ document.querySelectorAll("[data-bulk]").forEach(b => b.onclick = () => {
 function renderMachines() {
   const q = msearch.value.trim().toUpperCase();
   const hits = [];
-  for (let m = 0; m < NM; m++) if (!q || MACHINES[m].includes(q)) hits.push(m);
+  for (let m = 0; m < NM; m++)
+    if (!q || MACHINES[m].includes(q) || MNAMES[m].toUpperCase().includes(q)) hits.push(m);
   hits.sort((a, b) => MACH_NODES[b].length - MACH_NODES[a].length);
   document.getElementById("mcount").textContent =
     `${hits.length} of ${NM} listed · ${pickedMachines.size} selected`;
   const list = document.getElementById("mlist");
   list.innerHTML = hits.map(m => `
-    <button class="row" data-m="${m}" aria-pressed="${pickedMachines.has(m)}">
-      <i class="tick">✓</i>${MACHINES[m]} <span class="op">op ${MOPS[m]}</span>
+    <button class="row mrow" data-m="${m}" aria-pressed="${pickedMachines.has(m)}">
+      <i class="tick">✓</i>
+      <span class="mcol"><b>${MNAMES[m]}</b><span>${MACHINES[m]} · op ${MOPS[m]}</span></span>
       <span class="meta">${MACH_NODES[m].length}</span>
     </button>`).join("");
   list.querySelectorAll(".row").forEach(b => b.onclick = () => {
@@ -1521,7 +1564,7 @@ function marked() {
 
 function csvCodigos() {
   const rows = [row(["Code", "Class", "ClassName", "Owner", "DirectComponents", "UsedBy",
-    "FullExplosion", "EndProductsAbove", "Machines", "Operations"])];
+    "FullExplosion", "EndProductsAbove", "Machines", "MachineNames", "Operations"])];
   for (const n of marked()) {
     const ms = machinesOf(n);
     rows.push(row([
@@ -1529,6 +1572,7 @@ function csvCodigos() {
       OWNER[n] === NO_OWNER ? "" : OWNERS[OWNER[n]], nCh(n), nPa(n),
       reach(n, CH_OFF, CH_IDX), endProductsAbove(n),
       ms.map(m => MACHINES[m]).join(" "),
+      ms.map(m => MNAMES[m]).join(" | "),
       [...new Set(ms.map(m => MOPS[m]))].join(" ")
     ]));
   }
@@ -1632,7 +1676,7 @@ function syncTools() {
   document.getElementById("btn-links").setAttribute("aria-pressed", groupLinks);
   const edit = document.getElementById("btn-edit");
   edit.disabled = !view.clusters.length;
-  if (edit.disabled && editMode) { editMode = false; edit.setAttribute("aria-pressed", false); setHint(); }
+  if (edit.disabled && editMode) setMode("edit");   // toggles it back off
 }
 const relayout = () => setScope(scope.kind, scope.seeds, scope.dir, scope.label);
 document.getElementById("lay-tree").onclick = () => { layoutMode = "tree"; relayout(); };
@@ -1640,25 +1684,29 @@ document.getElementById("lay-clu").onclick = () => { layoutMode = "clusters"; re
 document.getElementById("btn-links").onclick = () => { autoGroup = false; groupLinks = !groupLinks; relayout(); };
 document.getElementById("btn-fit").onclick = fit;
 document.getElementById("btn-relayout").onclick = relayout;
-document.getElementById("btn-edit").onclick = ev => {
-  editMode = !editMode;
-  if (editMode && multiMode) document.getElementById("btn-multi").click();
-  ev.currentTarget.setAttribute("aria-pressed", editMode);
+function setMode(m) {
+  canvasMode = canvasMode === m ? "none" : m;
+  multiMode = canvasMode === "box";
+  editMode = canvasMode === "edit";
+  chainMode = canvasMode === "chain";
+  for (const [id, name] of [["btn-multi", "box"], ["btn-chain", "chain"], ["btn-edit", "edit"]])
+    document.getElementById(id).setAttribute("aria-pressed", canvasMode === name);
+  cv.classList.toggle("marquee", multiMode);
   cv.classList.remove("on-box", "grip");
   setHint();
   draw();
-};
-document.getElementById("btn-multi").onclick = ev => {
-  multiMode = !multiMode;
-  if (multiMode && editMode) document.getElementById("btn-edit").click();
-  ev.currentTarget.setAttribute("aria-pressed", multiMode);
-  cv.classList.toggle("marquee", multiMode);
-  setHint();
-};
+}
+document.getElementById("btn-multi").onclick = () => setMode("box");
+document.getElementById("btn-chain").onclick = () => setMode("chain");
+document.getElementById("btn-edit").onclick = () => setMode("edit");
+
 function setHint() {
   document.getElementById("hint").innerHTML = editMode
     ? `<span>Drag a block to move the frame</span><span>Drag its bottom-right corner to resize</span>
        <span>The codes inside stay where they are</span><span>Drag the background to pan</span>`
+    : chainMode
+    ? `<span>Click a code to select everything it connects to</span><span>Up to what ships, down to raw materials</span>
+       <span>Every click adds</span><span>Drag the background to pan</span>`
     : multiMode
     ? `<span>Drag across the canvas to enclose points</span><span>Every rectangle adds</span>
        <span>Drag a marked point to move the block</span><span>Shift-drag to pan</span>`
