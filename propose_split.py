@@ -5,291 +5,199 @@ Uso:  python3 propose_split.py
 Escribe ownership_proposal.json (codigo -> indice de owner) e imprime las
 metricas del reparto.
 
-Dos objetivos tiran en direcciones opuestas y no se pueden satisfacer los dos:
+El reparto no sale de optimizar un grafo: sale de como esta organizada la
+planta. Cada planner es dueno de un grupo de lineas de packing, y todo lo demas
+cuelga de ahi:
 
-  * Que cada planner tenga sus cadenas de principio a fin, sin depender de
-    bulks de otro.
-  * Que no compartan maquina, para no pisarse en la programacion.
+  1. Las lineas de packing se reparten por familia de producto.
+  2. Cada codigo de packing va con el dueno de su linea.
+  3. Cada bulk va con el planner que mas lo consume en sus lineas de packing.
+  4. Un comprado va con su dueno solo si es uno solo; si lo consumen varios se
+     queda sin asignar, porque en la practica no se gestiona por planner.
 
-Son incompatibles porque un producto final se envasa en una P05P y su bulk se
-fabrica en una P05M, asi que toda cadena cruza de maquina por construccion.
-Unir por maquina compartida da 21 grupos, pero unir por maquina Y cadena da un
-unico grupo con los 3.925 producibles: no hay corte limpio.
-
-De modo que esto es una particion equilibrada de grafo con dos costes a la vez.
-Se optimiza por busqueda local sobre los codigos producibles y despues se
-reparten los comprados, que por naturaleza se comparten.
+Los grupos de lineas salen de la fluidity real: mirando que codigos pueden
+correr en dos lineas a la vez, las lineas se separan en cinco bloques sin un
+solo codigo compartido entre ellos.
 """
 
 import json
-import sys
 from collections import Counter, defaultdict
 
 import pandas as pd
 
 XLSX = "Ashford split 2.xlsx"
+NOMBRES = "machine_names.tsv"
 SALIDA = "ownership_proposal.json"
 
 OWNERS = ["Sr planner 1", "Sr planner 2", "Jr planner 1", "Jr planner 2", "Intern"]
-# Cuanta carga se lleva cada uno. El intern la mitad que un planner.
-CARGA = [1.0, 1.0, 1.0, 1.0, 0.5]
 
-# Cuanto pesa cada tipo de roce. Compartir una maquina obliga a coordinarse
-# todos los dias; un eslabon de cadena roto es un traspaso por articulo. De ahi
-# que una maquina partida pese mas que un enlace, pero no infinitamente: si
-# pesara demasiado, las cadenas se romperian todas.
-PESO_MAQUINA = int(sys.argv[1]) if len(sys.argv) > 1 else 25
-PESO_ENLACE = 1
-
-VUELTAS = 40          # pasadas de busqueda local
-HOLGURA = 1.06        # cuanto puede pasarse un owner de su cuota
-
-
-def cargar():
-    bom = pd.read_excel(XLSX, sheet_name="BOM", dtype=str)
-    rate = pd.read_excel(XLSX, sheet_name="RATE", dtype=str)
-
-    codigos = sorted(set(bom.ParentID) | set(bom.ComponentID))
-    idx = {c: i for i, c in enumerate(codigos)}
-
-    hijos = defaultdict(set)
-    padres = defaultdict(set)
-    for a, b in zip(bom.ParentID, bom.ComponentID):
-        hijos[idx[a]].add(idx[b])
-        padres[idx[b]].add(idx[a])
-
-    maquinas = sorted(rate.MachineId.unique())
-    midx = {m: i for i, m in enumerate(maquinas)}
-    maq_de = defaultdict(set)
-    for m, p in zip(rate.MachineId, rate.ProductID):
-        if p in idx:
-            maq_de[idx[p]].add(midx[m])
-
-    return codigos, idx, hijos, padres, maquinas, maq_de
+# Que lineas de packing lleva cada uno. Los bloques salen de la fluidity: no hay
+# ni un codigo que corra en lineas de dos bloques distintos.
+LINEAS = {
+    # Liquidos, foundations. Dentro de foundations hay dos nucleos de fluidity
+    # que no comparten ni un codigo: 521-518-513 por un lado y 509-519 por otro.
+    # Se separan por ahi, que no cuesta nada en fluidity, y las 509-519 pasan al
+    # intern: dejar foundations entera cargaba a este planner con 698 codigos de
+    # packing frente a los 171 del intern.
+    "Sr planner 1": ["P05P0521", "P05P0518", "P05P0513"],
+    # Liquidos, el bloque Kugler. 501-510, 502-506 y 501-502 son los enlaces
+    # fuertes; 507 y 516 cuelgan de el con poca fluidity pero son de la familia.
+    "Sr planner 2": ["P05P0501", "P05P0502", "P05P0506", "P05P0507", "P05P0510", "P05P0516"],
+    # Powders: las lineas 600 de envasado y las 300 de pressing, donde se hacen
+    # los wips que ellas mismas consumen.
+    "Jr planner 1": ["P05P0602", "P05P0603", "P05P0612",
+                     "P05P0306", "P05P0321", "P05P0322", "P05P0324",
+                     "P05P0325", "P05P0326", "P05P0327", "P05P0329"],
+    # Mouldings, las lineas 400. Se le suma la 520 Romaco: de sus 79 codigos, 59
+    # se alimentan de mouldings y de Kugler a la vez, asi que romper por un lado
+    # o por otro cuesta casi lo mismo (70 cadenas frente a 68). Se decide por
+    # carga, que en mouldings es la mitad que en Kugler, y por dejar la cadena
+    # 416 -> 520 en una sola mano.
+    "Jr planner 2": ["P05P0402", "P05P0410", "P05P0416", "P05P0417", "P05P0520"],
+    # Tres lineas de liquidos sin fluidity entre ellas ni con nadie mas, que es
+    # la carga mas llevadera del reparto.
+    "Intern": ["P05P0509", "P05P0519", "P05P0701"],
+}
 
 
 def main():
-    codigos, idx, hijos, padres, maquinas, maq_de = cargar()
-    n = len(codigos)
-    producibles = [i for i in range(n) if maq_de[i]]
-    comprados = [i for i in range(n) if not maq_de[i]]
-    codigos_de_maq = defaultdict(list)
-    for i in producibles:
-        for m in maq_de[i]:
-            codigos_de_maq[m].append(i)
+    bom = pd.read_excel(XLSX, sheet_name="BOM", dtype=str)
+    rate = pd.read_excel(XLSX, sheet_name="RATE", dtype=str)
+    nombres = pd.read_csv(NOMBRES, sep="\t", dtype=str)
+    nombre_maq = dict(zip(nombres.MachineId, nombres.Description))
 
-    # Enlaces entre producibles: son las cadenas que interesa no partir.
-    enlaces = defaultdict(set)
-    for i in producibles:
-        for j in hijos[i] | padres[i]:
-            if maq_de[j]:
-                enlaces[i].add(j)
+    codigos = sorted(set(bom.ParentID) | set(bom.ComponentID))
+    hijos, padres = defaultdict(set), defaultdict(set)
+    for a, b in zip(bom.ParentID, bom.ComponentID):
+        hijos[a].add(b)
+        padres[b].add(a)
+    maq = defaultdict(set)
+    for m, p in zip(rate.MachineId, rate.ProductID):
+        maq[p].add(m)
 
-    cuota = [len(producibles) * c / sum(CARGA) for c in CARGA]
-    tope = [c * HOLGURA for c in cuota]
-
-    # ---- arranque: hacer crecer cinco regiones por la cadena ----
-    # Sembrar por grupos de maquina condena el reparto: las P05M y las P05P son
-    # disjuntas, asi que un owner se queda con los bulks y otro con los productos
-    # finales, que es lo contrario de tener la cadena entera. Se siembra por la
-    # cadena y las maquinas se arreglan despues en la busqueda local.
-    orden = sorted(producibles, key=lambda i: -len(enlaces[i]))
-    semillas, vistos = [], set()
-    for i in orden:                       # semillas lejanas entre si
-        if len(semillas) == len(OWNERS):
-            break
-        if i in vistos:
-            continue
-        semillas.append(i)
-        cerca, frente = {i}, [i]
-        for _ in range(3):                # reservar su vecindario
-            nuevo = []
-            for x in frente:
-                for j in enlaces[x]:
-                    if j not in cerca:
-                        cerca.add(j)
-                        nuevo.append(j)
-            frente = nuevo
-        vistos |= cerca
+    linea_de = {m: o for o, ms in LINEAS.items() for m in ms}
+    packing = [m for m in rate.MachineId.unique() if m.startswith("P05P")]
+    faltan = sorted(set(packing) - set(linea_de))
+    assert not faltan, f"lineas de packing sin grupo: {faltan}"
 
     owner = {}
-    carga = [0.0] * len(OWNERS)
-    frentes = []
-    for o, s in enumerate(semillas):
-        owner[s] = o
-        carga[o] += 1
-        frentes.append([s])
-    # crecer en rondas, cada owner tira de sus vecinos hasta llenar su cuota
-    sueltos = True
-    while sueltos:
-        sueltos = False
-        for o in sorted(range(len(OWNERS)), key=lambda o: carga[o] / cuota[o]):
-            if carga[o] >= cuota[o]:
-                continue
-            nuevo = []
-            for x in frentes[o]:
-                for j in enlaces[x]:
-                    if j not in owner and carga[o] < cuota[o]:
-                        owner[j] = o
-                        carga[o] += 1
-                        nuevo.append(j)
-            if nuevo:
-                frentes[o] = nuevo
-                sueltos = True
-            elif carga[o] < cuota[o]:     # region agotada: saltar a otro sitio
-                libre = next((i for i in orden if i not in owner), None)
-                if libre is not None:
-                    owner[libre] = o
-                    carga[o] += 1
-                    frentes[o] = [libre]
-                    sueltos = True
-    for i in producibles:                 # lo que quede, al que tenga hueco
-        if i not in owner:
-            o = max(range(len(OWNERS)), key=lambda o: cuota[o] - carga[o])
-            owner[i] = o
-            carga[o] += 1
 
-    # ---- coste ----
-    def maquinas_partidas():
-        return sum(len({owner[i] for i in cs}) - 1 for cs in codigos_de_maq.values())
-
-    def enlaces_rotos():
-        return sum(1 for i in producibles for j in enlaces[i] if owner[i] != owner[j]) // 2
-
-    def coste():
-        return PESO_MAQUINA * maquinas_partidas() + PESO_ENLACE * enlaces_rotos()
-
-    print(f"arranque: {maquinas_partidas()} maquinas partidas, {enlaces_rotos()} enlaces rotos")
-
-    # ---- busqueda local ----
-    # Dos escalas de movimiento. Mover un codigo suelto arregla las cadenas pero
-    # nunca consolida una maquina, porque hace falta que se muevan todos sus
-    # codigos a la vez; el movimiento de maquina entera es el que recorre el
-    # compromiso entre no partir maquinas y no partir cadenas.
-    def mover_maquina(m):
-        cs = codigos_de_maq[m]
-        duenos = {owner[i] for i in cs}
-        if len(duenos) < 2:
-            return False
-        mejor, mejor_d = None, 0
-        for o in duenos:
-            fuera = [i for i in cs if owner[i] != o]
-            if carga[o] + len(fuera) > tope[o]:
-                continue
-            d = 0
-            for i in fuera:                       # cadenas que gana y pierde
-                d += PESO_ENLACE * (sum(1 for j in enlaces[i] if owner[j] == owner[i])
-                                    - sum(1 for j in enlaces[i] if owner[j] == o))
-            antes = {i: owner[i] for i in fuera}  # maquinas antes y despues
-            tocadas = {mm for i in fuera for mm in maq_de[i]}
-            prev = sum(len({owner[x] for x in codigos_de_maq[mm]}) - 1 for mm in tocadas)
-            for i in fuera:
-                owner[i] = o
-            post = sum(len({owner[x] for x in codigos_de_maq[mm]}) - 1 for mm in tocadas)
-            for i, o0 in antes.items():
-                owner[i] = o0
-            d += PESO_MAQUINA * (post - prev)
-            if d < mejor_d:
-                mejor, mejor_d = o, d
-        if mejor is None:
-            return False
-        for i in cs:
-            if owner[i] != mejor:
-                carga[owner[i]] -= 1
-                carga[mejor] += 1
-                owner[i] = mejor
-        return True
-
-    for vuelta in range(VUELTAS):
-        movidos = 0
-        for m in sorted(codigos_de_maq, key=lambda m: -len(codigos_de_maq[m])):
-            if mover_maquina(m):
-                movidos += 1
-        for i in producibles:
-            actual = owner[i]
-            mejor, mejor_delta = actual, 0
-            for o in range(len(OWNERS)):
-                if o == actual or carga[o] + 1 > tope[o]:
-                    continue
-                # enlaces: cuantos vecinos gana o pierde
-                gana = sum(1 for j in enlaces[i] if owner[j] == o)
-                pierde = sum(1 for j in enlaces[i] if owner[j] == actual)
-                d = PESO_ENLACE * (pierde - gana)
-                # maquinas: cuantos owners distintos tocan sus maquinas antes y despues
-                for m in maq_de[i]:
-                    otros = Counter(owner[x] for x in codigos_de_maq[m] if x != i)
-                    antes = len(set(otros) | {actual}) - 1
-                    despues = len(set(otros) | {o}) - 1
-                    d += PESO_MAQUINA * (despues - antes)
-                if d < mejor_delta:
-                    mejor, mejor_delta = o, d
-            if mejor != actual:
-                carga[actual] -= 1
-                carga[mejor] += 1
-                owner[i] = mejor
-                movidos += 1
-        if not movidos:
-            print(f"estable en la vuelta {vuelta}")
-            break
-    print(f"tras optimizar: {maquinas_partidas()} maquinas partidas, {enlaces_rotos()} enlaces rotos")
-
-    # ---- comprados: al que mas los consume ----
-    # Se comparten por naturaleza, asi que se asignan por mayoria y se cuenta
-    # cuantos quedan repartidos entre varios.
-    compartidos = 0
-    for i in comprados:
-        duenos = Counter(owner[p] for p in padres[i] if p in owner)
+    # ---- 1. cada codigo de packing, con el dueno de su linea ----
+    conflicto = 0
+    for c in codigos:
+        duenos = {linea_de[m] for m in maq.get(c, ()) if m in linea_de}
         if not duenos:
             continue
         if len(duenos) > 1:
-            compartidos += 1
-        owner[i] = duenos.most_common(1)[0][0]
+            conflicto += 1
+        owner[c] = OWNERS.index(sorted(duenos)[0])
+    print(f"1. packing: {len(owner)} codigos"
+          + (f" ({conflicto} en lineas de dos duenos)" if conflicto else " (ninguno en dos bloques)"))
 
-    # ---- metricas ----
-    consumidos = {j for i in range(n) for j in hijos[i]}
-
-    def clase(i):
-        if not maq_de[i]:
-            return "CMP"
-        if any(maquinas[m].startswith("P05M") for m in maq_de[i]):
-            return "BLK"
-        return "WIP" if i in consumidos else "FG"
-
-    print(f"\n{'':16} {'total':>6} {'FG':>6} {'BLK':>5} {'WIP':>5} {'CMP':>6} {'maquinas':>9}")
-    for o, nombre in enumerate(OWNERS):
-        suyos = [i for i in range(n) if owner.get(i) == o]
-        c = Counter(clase(i) for i in suyos)
-        maqs = {m for i in suyos for m in maq_de[i]}
-        print(f"{nombre:16} {len(suyos):>6} {c['FG']:>6} {c['BLK']:>5} {c['WIP']:>5} {c['CMP']:>6} {len(maqs):>9}")
-
-    partidas = [maquinas[m] for m, cs in codigos_de_maq.items() if len({owner[i] for i in cs}) > 1]
-    print(f"\nmaquinas compartidas entre planners: {len(partidas)} de {len(maquinas)}"
-          + (f" -> {', '.join(partidas[:8])}{'...' if len(partidas) > 8 else ''}" if partidas else ""))
-
-    # cadenas completas: un producto final y todos sus producibles aguas abajo
-    finales = [i for i in producibles if i not in consumidos]
-    enteras = 0
-    for f in finales:
-        pila, visto, duenos = [f], {f}, {owner[f]}
+    # ---- 2. cada bulk, con quien mas lo consume en sus lineas de packing ----
+    # Se sube por toda la cadena, no solo al padre directo: un bulk puede
+    # alimentar a otro bulk y solo aparecer en packing dos niveles mas arriba.
+    por_maquina = defaultdict(list)
+    for c in codigos:
+        for m in maq.get(c, ()):
+            por_maquina[m].append(c)
+    bulks = [c for c in codigos if c not in owner and maq.get(c)]
+    sin_rastro = []
+    for c in bulks:
+        pila, visto, cuenta = [c], {c}, Counter()
         while pila:
             x = pila.pop()
-            for j in hijos[x]:
-                if maq_de[j] and j not in visto:
-                    visto.add(j)
-                    duenos.add(owner[j])
-                    pila.append(j)
+            for p in padres[x]:
+                if p in visto:
+                    continue
+                visto.add(p)
+                if p in owner:
+                    cuenta[owner[p]] += 1
+                else:
+                    pila.append(p)
+        if cuenta:
+            owner[c] = cuenta.most_common(1)[0][0]
+        else:
+            sin_rastro.append(c)
+    print(f"2. making : {len(bulks) - len(sin_rastro)} bulks por consumo en packing")
+
+    # Los que no llegan a packing son los que se venden a granel: no hay linea
+    # aguas arriba de la que colgarlos, asi que van con quien lleve el resto de
+    # su propia maquina de making.
+    huerfanos = 0
+    for _ in range(3):                     # unas pocas pasadas: se apoyan entre si
+        for c in list(sin_rastro):
+            cuenta = Counter(owner[o] for m in maq[c]
+                             for o in por_maquina[m] if o in owner)
+            if cuenta:
+                owner[c] = cuenta.most_common(1)[0][0]
+    huerfanos = sum(1 for c in sin_rastro if c not in owner)
+    print(f"          {len(sin_rastro) - huerfanos} a granel por mayoria de su maquina"
+          + (f", {huerfanos} sin resolver" if huerfanos else ""))
+
+    # ---- 3. comprados: solo si tienen un unico dueno ----
+    comprados = [c for c in codigos if not maq.get(c)]
+    unico = compartido = 0
+    for c in comprados:
+        duenos = {owner[p] for p in padres[c] if p in owner}
+        if len(duenos) == 1:
+            owner[c] = duenos.pop()
+            unico += 1
+        else:
+            compartido += 1
+    print(f"3. compos : {unico} con un solo dueno, {compartido} compartidos que se dejan vacios")
+
+    # ---- metricas ----
+    consumidos = {b for a in hijos for b in hijos[a]}
+
+    def clase(c):
+        ms = maq.get(c)
+        if not ms:
+            return "CMP"
+        if any(m.startswith("P05M") for m in ms):
+            return "BLK"
+        return "WIP" if c in consumidos else "FG"
+
+    print(f"\n{'':16} {'total':>6} {'FG':>5} {'BLK':>5} {'WIP':>5} {'CMP':>6}  lineas")
+    for o, nom in enumerate(OWNERS):
+        suyos = [c for c in codigos if owner.get(c) == o]
+        k = Counter(clase(c) for c in suyos)
+        ls = ", ".join(nombre_maq.get(m, m) for m in LINEAS[nom])
+        print(f"{nom:16} {len(suyos):>6} {k['FG']:>5} {k['BLK']:>5} {k['WIP']:>5} {k['CMP']:>6}  {ls}")
+    print(f"{'sin asignar':16} {sum(1 for c in codigos if c not in owner):>6}"
+          f" {'':>5} {'':>5} {'':>5} {compartido:>6}  compos que consumen varios planners")
+
+    # maquinas de un solo dueno
+    por_maq = defaultdict(set)
+    for c, o in owner.items():
+        for m in maq.get(c, ()):
+            por_maq[m].add(o)
+    partidas = sorted(m for m, os in por_maq.items() if len(os) > 1)
+    print(f"\nmaquinas de un solo planner: {len(por_maq) - len(partidas)} de {len(por_maq)}")
+    if partidas:
+        print("  compartidas: " + ", ".join(f"{nombre_maq.get(m, m)}({len(por_maq[m])})" for m in partidas))
+    p05p = [m for m in partidas if m.startswith("P05P")]
+    print(f"  de ellas lineas de packing: {len(p05p)}" + (f" -> {p05p}" if p05p else " (ninguna)"))
+
+    # cadenas completas entre producibles
+    finales = [c for c in codigos if maq.get(c) and c not in consumidos]
+    enteras = 0
+    for f in finales:
+        pila, visto, duenos = [f], {f}, {owner.get(f)}
+        while pila:
+            x = pila.pop()
+            for h in hijos[x]:
+                if maq.get(h) and h not in visto:
+                    visto.add(h)
+                    duenos.add(owner.get(h))
+                    pila.append(h)
         if len(duenos) == 1:
             enteras += 1
-    print(f"cadenas de producto final con un solo dueno: {enteras} de {len(finales)} ({enteras/len(finales):.0%})")
-    dentro = sum(1 for i in producibles for j in enlaces[i] if owner[i] == owner[j]) // 2
-    total_en = sum(len(enlaces[i]) for i in producibles) // 2
-    print(f"enlaces de cadena dentro del mismo planner: {dentro} de {total_en} ({dentro/total_en:.0%})")
-    print(f"comprados que consumen varios planners: {compartidos} de {len(comprados)} "
-          f"({compartidos/len(comprados):.0%}) — inevitable, el grafo es una sola pieza")
+    print(f"\ncadenas de producto final con un solo dueno: {enteras} de {len(finales)} "
+          f"({enteras / len(finales):.0%})")
 
-    fuera = {codigos[i]: o for i, o in owner.items()}
-    json.dump(fuera, open(SALIDA, "w"), separators=(",", ":"))
-    print(f"\n{SALIDA}: {len(fuera)} codigos asignados de {n}")
+    json.dump(owner, open(SALIDA, "w"), separators=(",", ":"))
+    print(f"{SALIDA}: {len(owner)} codigos asignados de {len(codigos)}")
 
 
 if __name__ == "__main__":
