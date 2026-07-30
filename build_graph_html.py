@@ -10,10 +10,14 @@ lo incrusta en graph_template.html para producir un unico HTML autocontenido:
 El grafo se guarda en formato CSR (offsets + indices) y solo con la direccion
 padre -> hijo; los padres se reconstruyen en el navegador para no duplicar las
 48.756 aristas en el fichero.
+
+La clasificacion FG / BLK / WIP / CMP se deriva en el navegador a partir de las
+maquinas de RATE; aqui solo se calcula para elegir el codigo de arranque y para
+el resumen que se imprime.
 """
 
 import json
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 import pandas as pd
 
@@ -53,11 +57,20 @@ def main():
         mach_idx.extend(sorted(por_codigo.get(i, ())))
         mach_off.append(len(mach_idx))
 
-    # Producto final de arranque: el arbol mas representativo, para que la
-    # primera pantalla muestre los tres tipos de nodo y varios niveles. Se
-    # prefiere profundidad, luego cantidad de componentes fabricados.
+    # Codigo de arranque: el arbol mas representativo, para que la primera
+    # pantalla muestre las cuatro clases y varios niveles. Se prefiere que
+    # aparezcan todas las clases, luego profundidad, luego cantidad de bulks.
     consumidos = set(bom.ComponentID)
-    finales = [idx[c] for c in sorted(set(bom.ParentID) - consumidos)]
+    raices = [idx[c] for c in sorted(set(bom.ParentID) - consumidos)]
+    es_bulk = [m.startswith("P05M") for m in maquinas]
+
+    def clase(i):
+        """CMP sin maquina; BLK si sale en alguna P05M; si no, FG o WIP."""
+        if mach_off[i + 1] == mach_off[i]:
+            return "CMP"
+        if any(es_bulk[m] for m in mach_idx[mach_off[i]:mach_off[i + 1]]):
+            return "BLK"
+        return "WIP" if codes[i] in consumidos else "FG"
 
     def explorar(raiz):
         prof = {raiz: 0}
@@ -73,13 +86,11 @@ def main():
 
     def puntuar(i):
         maxp, alcance = explorar(i)
-        tipos = {2 if mach_off[n + 1] == mach_off[n] else (1 if codes[n] in consumidos else 0)
-                 for n in alcance}
-        fabricados = sum(1 for n in alcance
-                         if mach_off[n + 1] > mach_off[n] and codes[n] in consumidos)
-        return (len(tipos), maxp, fabricados, -abs(len(alcance) - 34))
+        clases = {clase(n) for n in alcance}
+        bulks = sum(1 for n in alcance if clase(n) == "BLK")
+        return (len(clases), maxp, bulks, -abs(len(alcance) - 34))
 
-    inicio = max(finales, key=puntuar)
+    inicio = max(raices, key=puntuar)
 
     datos = {
         "codes": codes,
@@ -98,15 +109,11 @@ def main():
     html = plantilla.replace(marcador, json.dumps(datos, separators=(",", ":")))
     open(SALIDA, "w", encoding="utf-8").write(html)
 
-    tipos = [0, 0, 0]
-    for i in range(len(codes)):
-        producible = mach_off[i + 1] > mach_off[i]
-        consumido = codes[i] in consumidos
-        tipos[2 if not producible else (1 if consumido else 0)] += 1
+    reparto = Counter(clase(i) for i in range(len(codes)))
 
     print(f"{SALIDA} — {len(html) / 1024:.0f} KB")
     print(f"  {len(codes)} nodos | {len(ch_idx)} aristas | {len(maquinas)} maquinas")
-    print(f"  {tipos[0]} productos finales | {tipos[1]} fabricados | {tipos[2]} comprados")
+    print("  " + " | ".join(f"{reparto[c]} {c}" for c in ("FG", "BLK", "WIP", "CMP")))
     print(f"  arranque: {codes[inicio]} ({len(hijos[inicio])} componentes directos)")
 
 

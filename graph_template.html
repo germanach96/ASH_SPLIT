@@ -1,4 +1,4 @@
-<title>Ashford — Árbol de producto</title>
+<title>Ashford — Product tree</title>
 <style>
   :root {
     --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Menlo, Consolas, monospace;
@@ -15,40 +15,58 @@
     --rule-2: #e5edef;
 
     --fg: #b8460f;
-    --made: #0f766e;
-    --bought: #8896a2;
+    --blk: #0f766e;
+    --wip: #2f6ba8;
+    --cmp: #8896a2;
     --fg-soft: #f5e2d8;
-    --made-soft: #d8ebe8;
-    --bought-soft: #e3e9ec;
+    --blk-soft: #d8ebe8;
+    --wip-soft: #dbe7f4;
+    --cmp-soft: #e3e9ec;
 
     --edge: #b3c2c7;
     --edge-hot: #0f766e;
     --cluster: #eaf0f2;
     --cluster-line: #d9e3e6;
     --focus: #0f766e;
+    --pick: #b5179e;
+    --pick-soft: #f7e0f2;
+
+    /* Relleno por owner. Los aros ya usan óxido, verde azulado, azul y gris,
+       así que estos cinco se apartan de esas familias. */
+    --own0: #7c3aed;   /* Sr planner 1 */
+    --own1: #db2777;   /* Sr planner 2 */
+    --own2: #65a30d;   /* Jr planner 1 */
+    --own3: #d97706;   /* Jr planner 2 */
+    --own4: #334155;   /* Intern */
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --ground: #080d0f; --panel: #101a1d; --panel-2: #162226; --canvas-bg: #0b1315;
       --ink: #e2ecef; --ink-2: #9fb3ba; --ink-3: #6c8189; --rule: #213238; --rule-2: #1a282d;
-      --fg: #e8763c; --made: #3fb5a6; --bought: #7d8f9a;
-      --fg-soft: #33200f; --made-soft: #0e2d2b; --bought-soft: #1b262a;
+      --fg: #e8763c; --blk: #3fb5a6; --wip: #68a8e0; --cmp: #7d8f9a;
+      --fg-soft: #33200f; --blk-soft: #0e2d2b; --wip-soft: #12253a; --cmp-soft: #1b262a;
       --edge: #2c4046; --edge-hot: #3fb5a6; --cluster: #101b1f; --cluster-line: #1e2f35; --focus: #3fb5a6;
+      --pick: #f07ad0; --pick-soft: #3a1030;
+      --own0: #a78bfa; --own1: #f472b6; --own2: #a3e635; --own3: #fbbf24; --own4: #cbd5e1;
     }
   }
   :root[data-theme="dark"] {
     --ground: #080d0f; --panel: #101a1d; --panel-2: #162226; --canvas-bg: #0b1315;
     --ink: #e2ecef; --ink-2: #9fb3ba; --ink-3: #6c8189; --rule: #213238; --rule-2: #1a282d;
-    --fg: #e8763c; --made: #3fb5a6; --bought: #7d8f9a;
-    --fg-soft: #33200f; --made-soft: #0e2d2b; --bought-soft: #1b262a;
+    --fg: #e8763c; --blk: #3fb5a6; --wip: #68a8e0; --cmp: #7d8f9a;
+    --fg-soft: #33200f; --blk-soft: #0e2d2b; --wip-soft: #12253a; --cmp-soft: #1b262a;
     --edge: #2c4046; --edge-hot: #3fb5a6; --cluster: #101b1f; --cluster-line: #1e2f35; --focus: #3fb5a6;
+    --pick: #f07ad0; --pick-soft: #3a1030;
+    --own0: #a78bfa; --own1: #f472b6; --own2: #a3e635; --own3: #fbbf24; --own4: #cbd5e1;
   }
   :root[data-theme="light"] {
     --ground: #eef2f3; --panel: #ffffff; --panel-2: #f6f9fa; --canvas-bg: #f8fafb;
     --ink: #101a1e; --ink-2: #46585f; --ink-3: #7a8b93; --rule: #d3dee1; --rule-2: #e5edef;
-    --fg: #b8460f; --made: #0f766e; --bought: #8896a2;
-    --fg-soft: #f5e2d8; --made-soft: #d8ebe8; --bought-soft: #e3e9ec;
+    --fg: #b8460f; --blk: #0f766e; --wip: #2f6ba8; --cmp: #8896a2;
+    --fg-soft: #f5e2d8; --blk-soft: #d8ebe8; --wip-soft: #dbe7f4; --cmp-soft: #e3e9ec;
     --edge: #b3c2c7; --edge-hot: #0f766e; --cluster: #eaf0f2; --cluster-line: #d9e3e6; --focus: #0f766e;
+    --pick: #b5179e; --pick-soft: #f7e0f2;
+    --own0: #7c3aed; --own1: #db2777; --own2: #65a30d; --own3: #d97706; --own4: #334155;
   }
 
   * { box-sizing: border-box; }
@@ -68,10 +86,14 @@
   #brand span { font-family: var(--mono); font-size: 11px; color: var(--ink-3); letter-spacing: .08em; }
   .legend { display: flex; gap: 15px; flex-wrap: wrap; }
   .lg { display: flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 11px; letter-spacing: .05em; color: var(--ink-2); white-space: nowrap; }
-  .dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
-  .dot.fg { background: var(--fg); }
-  .dot.made { background: var(--made); }
-  .dot.bought { background: var(--panel); border: 2px solid var(--bought); }
+  /* Class shows as a ring, matching how the graph draws it now. */
+  .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; background: none; border: 3px solid transparent; }
+  .dot.fg { border-color: var(--fg); }
+  .dot.blk { border-color: var(--blk); }
+  .dot.wip { border-color: var(--wip); }
+  .dot.cmp { border-color: var(--cmp); }
+  .swatch { width: 12px; height: 12px; border-radius: 50%; flex: none; border: 1px solid var(--rule); }
+  .swatch.none { background: var(--panel); }
   .tools { display: flex; gap: 6px; flex-wrap: wrap; }
   .split { display: flex; border: 1px solid var(--rule); border-radius: 2px; overflow: hidden; }
   .split button { border: 0; border-radius: 0; border-left: 1px solid var(--rule); }
@@ -85,8 +107,8 @@
   button:hover:not(:disabled) { border-color: var(--focus); color: var(--ink); }
   button:disabled { opacity: .42; cursor: default; }
   button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
-  button[aria-pressed="true"] { background: var(--made-soft); border-color: var(--made); color: var(--ink); }
-  .split button[aria-pressed="true"] { border-left-color: var(--made); }
+  button[aria-pressed="true"] { background: var(--blk-soft); border-color: var(--blk); color: var(--ink); }
+  .split button[aria-pressed="true"] { border-left-color: var(--blk); }
 
   aside { background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
   #left { border-right: 1px solid var(--rule); }
@@ -99,7 +121,7 @@
     flex: 1; border: 0; border-radius: 0; border-bottom: 2px solid transparent;
     background: none; padding: 11px 4px; font-size: 11px;
   }
-  #tabs button[aria-selected="true"] { border-bottom-color: var(--made); color: var(--ink); background: var(--panel-2); }
+  #tabs button[aria-selected="true"] { border-bottom-color: var(--blk); color: var(--ink); background: var(--panel-2); }
 
   .pane { display: none; flex-direction: column; min-height: 0; flex: 1; }
   .pane.on { display: flex; }
@@ -119,13 +141,13 @@
     font-family: var(--mono); color: var(--ink); cursor: pointer;
   }
   .row:hover { background: var(--panel-2); border-left-color: var(--rule); }
-  .row[aria-current="true"], .row[aria-pressed="true"] { background: var(--made-soft); border-left-color: var(--made); }
+  .row[aria-current="true"], .row[aria-pressed="true"] { background: var(--blk-soft); border-left-color: var(--blk); }
   .row .meta { margin-left: auto; font-size: 10px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
   .tick {
     width: 13px; height: 13px; flex: none; border: 1px solid var(--rule); border-radius: 2px;
     display: grid; place-items: center; font-size: 9px; color: var(--panel); background: var(--panel-2);
   }
-  .row[aria-pressed="true"] .tick { background: var(--made); border-color: var(--made); }
+  .row[aria-pressed="true"] .tick { background: var(--blk); border-color: var(--blk); }
   .op { font-size: 10px; color: var(--ink-3); }
   .count { padding: 8px 14px; font-family: var(--mono); font-size: 10px; letter-spacing: .08em; color: var(--ink-3); }
   .bulk { display: flex; gap: 5px; margin-top: 8px; }
@@ -134,7 +156,60 @@
   #stage { position: relative; background: var(--canvas-bg); min-width: 0; }
   canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
   canvas.grabbing { cursor: grabbing; }
-  canvas.on-node { cursor: pointer; }
+  canvas.marquee { cursor: crosshair; }
+  canvas.on-node { cursor: pointer; }   /* after .marquee, so a point beats the box cursor */
+  button[aria-pressed="true"].pick { background: var(--pick-soft); border-color: var(--pick); color: var(--ink); }
+  /* The slot is always reserved. If the counter appeared on the first mark the
+     toolbar would grow and the drawing would jump under the cursor. */
+  #picked {
+    font-family: var(--mono); font-size: 11px; color: var(--pick); letter-spacing: .06em;
+    white-space: nowrap; min-width: 13ch; visibility: hidden;
+  }
+  #picked.on { visibility: visible; }
+
+  #selbox { display: flex; flex-direction: column; gap: 9px; }
+  #selchips { display: flex; flex-wrap: wrap; gap: 4px; max-height: 132px; overflow-y: auto; }
+  #selchips .chip { border-color: var(--pick); color: var(--pick); background: var(--pick-soft); }
+  .selacts { display: flex; gap: 5px; }
+  .selacts button { flex: 1; padding: 6px 4px; }
+
+  #assign {
+    width: 100%; font-family: var(--mono); font-size: 11px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--ink); background: var(--panel-2);
+    border: 1px solid var(--rule); border-radius: 2px; padding: 7px 8px;
+  }
+  #assign:disabled { opacity: .45; }
+  #owners { display: flex; flex-direction: column; gap: 2px; }
+  .own {
+    display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+    border: 0; border-left: 2px solid transparent; border-radius: 0; background: none;
+    padding: 5px 6px; font-family: var(--mono); font-size: 11.5px;
+    letter-spacing: 0; text-transform: none; color: var(--ink); cursor: pointer;
+  }
+  .own:hover { background: var(--panel-2); border-left-color: var(--rule); }
+  .own .n { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--ink-3); font-size: 10.5px; }
+  .own .bar { height: 3px; border-radius: 2px; }
+
+  #modal {
+    position: fixed; inset: 0; z-index: 20; display: none; place-items: center;
+    /* Fixed dark scrim. Keyed to var(--ink) it turned almost white in dark
+       theme and washed the page out instead of dimming it. */
+    background: rgba(6, 12, 14, .58); padding: 24px;
+  }
+  #modal.on { display: grid; }
+  #modal .sheet {
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 3px;
+    width: min(760px, 100%); max-height: 86vh; display: flex; flex-direction: column;
+  }
+  #modal header { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-bottom: 1px solid var(--rule); }
+  #modal h2 { margin: 0; margin-right: auto; font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
+  #csv {
+    flex: 1; min-height: 240px; margin: 0; border: 0; border-bottom: 1px solid var(--rule); resize: none;
+    padding: 14px 16px; font-family: var(--mono); font-size: 11.5px; line-height: 1.6;
+    color: var(--ink); background: var(--panel-2); white-space: pre; overflow: auto;
+  }
+  #modal footer { display: flex; align-items: center; gap: 8px; padding: 12px 16px; }
+  #modal footer .note { margin: 0; margin-right: auto; }
   #hint {
     position: absolute; left: 14px; bottom: 12px; display: flex; gap: 14px; flex-wrap: wrap;
     font-family: var(--mono); font-size: 10px; letter-spacing: .06em; color: var(--ink-3);
@@ -158,8 +233,9 @@
   #dcode { font-family: var(--mono); font-size: 17px; font-weight: 700; word-break: break-all; margin: 0 0 8px; }
   .badge { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; padding: 4px 9px; border-radius: 2px; }
   .badge.fg { background: var(--fg-soft); color: var(--fg); }
-  .badge.made { background: var(--made-soft); color: var(--made); }
-  .badge.bought { background: var(--bought-soft); color: var(--ink-2); }
+  .badge.blk { background: var(--blk-soft); color: var(--blk); }
+  .badge.wip { background: var(--wip-soft); color: var(--wip); }
+  .badge.cmp { background: var(--cmp-soft); color: var(--ink-2); }
   .kv { display: grid; grid-template-columns: 1fr auto; gap: 5px 10px; font-size: 12px; margin: 0; }
   .kv dt { color: var(--ink-2); }
   .kv dd { margin: 0; font-family: var(--mono); font-variant-numeric: tabular-nums; }
@@ -183,37 +259,41 @@
 
 <div id="app">
   <header id="bar">
-    <div id="brand"><b>Ashford</b><span>árbol de producto</span></div>
+    <div id="brand"><b>Ashford</b><span>product tree</span></div>
     <div class="legend">
-      <span class="lg"><i class="dot fg"></i>Producto final</span>
-      <span class="lg"><i class="dot made"></i>Fabricado en Ashford</span>
-      <span class="lg"><i class="dot bought"></i>Comprado</span>
+      <span class="lg"><i class="dot fg"></i>FG · finished good</span>
+      <span class="lg"><i class="dot blk"></i>BLK · bulk</span>
+      <span class="lg"><i class="dot wip"></i>WIP · work in progress</span>
+      <span class="lg"><i class="dot cmp"></i>CMP · purchased</span>
     </div>
     <div class="tools">
-      <div class="split" role="group" aria-label="Colocación">
-        <button id="lay-tree" aria-pressed="true">Jerarquía</button>
+      <div class="split" role="group" aria-label="Layout">
+        <button id="lay-tree" aria-pressed="true">Hierarchy</button>
         <button id="lay-clu" aria-pressed="false">Clusters</button>
       </div>
-      <button id="btn-links" aria-pressed="false" title="Resumir los enlaces entre clusters en una sola línea por par">Agrupar enlaces</button>
-      <button id="btn-fit">Encajar</button>
-      <button id="btn-relayout">Recolocar</button>
-      <button id="btn-all">Toda la fábrica</button>
+      <button id="btn-links" aria-pressed="false" title="Sum the links between two clusters into a single line">Bundle links</button>
+      <button id="btn-multi" class="pick" aria-pressed="false" title="Drag across the canvas to enclose points in a rectangle">Box select</button>
+      <span id="picked"></span>
+      <button id="btn-fit">Fit</button>
+      <button id="btn-relayout">Re-layout</button>
+      <button id="btn-all">Whole factory</button>
     </div>
   </header>
 
   <aside id="left">
     <div id="tabs" role="tablist">
-      <button role="tab" aria-selected="true" data-pane="codes">Códigos</button>
-      <button role="tab" aria-selected="false" data-pane="machines">Máquinas</button>
+      <button role="tab" aria-selected="true" data-pane="codes">Codes</button>
+      <button role="tab" aria-selected="false" data-pane="machines">Machines</button>
     </div>
 
     <div class="pane on" id="pane-codes">
       <div class="sec">
-        <input id="search" type="search" placeholder="99200005400, TRM020642…" autocomplete="off" spellcheck="false" aria-label="Buscar código" />
+        <input id="search" type="search" placeholder="99200005400, TRM020642…" autocomplete="off" spellcheck="false" aria-label="Search code" />
         <div class="filters">
-          <button data-filter="0" aria-pressed="true">Finales</button>
-          <button data-filter="1" aria-pressed="false">Fabricados</button>
-          <button data-filter="2" aria-pressed="false">Comprados</button>
+          <button data-filter="0" aria-pressed="true">FG</button>
+          <button data-filter="1" aria-pressed="false">BLK</button>
+          <button data-filter="2" aria-pressed="false">WIP</button>
+          <button data-filter="3" aria-pressed="false">CMP</button>
         </div>
       </div>
       <div class="count" id="ccount"></div>
@@ -222,11 +302,11 @@
 
     <div class="pane" id="pane-machines">
       <div class="sec">
-        <input id="msearch" type="search" placeholder="P05M0565…" autocomplete="off" spellcheck="false" aria-label="Buscar máquina" />
+        <input id="msearch" type="search" placeholder="P05M0565…" autocomplete="off" spellcheck="false" aria-label="Search machine" />
         <div class="bulk">
-          <button data-bulk="0040">Todas 0040</button>
-          <button data-bulk="0010">Todas 0010</button>
-          <button data-bulk="none">Limpiar</button>
+          <button data-bulk="0040">All 0040</button>
+          <button data-bulk="0010">All 0010</button>
+          <button data-bulk="none">Clear</button>
         </div>
       </div>
       <div class="count" id="mcount"></div>
@@ -237,19 +317,58 @@
   <main id="stage">
     <canvas id="cv"></canvas>
     <div id="scope"></div>
-    <div id="busy">Calculando…</div>
+    <div id="busy">Working…</div>
     <div id="hint">
-      <span>Arrastra un punto para moverlo</span>
-      <span>Arrastra el fondo para desplazar</span>
-      <span>Rueda para zoom</span>
-      <span>Clic para ver el código</span>
+      <span>Drag a point to move it</span>
+      <span>Drag the background to pan</span>
+      <span>Wheel to zoom</span>
+      <span>Click to read the code</span>
     </div>
   </main>
 
   <aside id="right">
-    <div class="sec"><h2>Detalle</h2></div>
+    <div class="sec" id="selbox">
+      <h2 id="selhead">Selection</h2>
+      <div id="selchips"></div>
+      <select id="assign" disabled aria-label="Assign the selection to an owner">
+        <option value="" selected>Assign to…</option>
+      </select>
+      <p class="note" id="assignnote"></p>
+      <div class="selacts">
+        <button id="btn-export" disabled>Export</button>
+        <button id="btn-clear" disabled>Clear</button>
+      </div>
+    </div>
+    <div class="sec">
+      <h2>Ownership</h2>
+      <div id="owners"></div>
+      <p class="note">Click an owner to select every code they hold, ready to hand over.</p>
+      <div class="selacts" style="margin-top:9px">
+        <button id="btn-reset">Clear all owners</button>
+      </div>
+    </div>
+    <div class="sec"><h2>Detail</h2></div>
     <div id="detail"></div>
   </aside>
+</div>
+
+<div id="modal" role="dialog" aria-modal="true" aria-labelledby="modaltitle" hidden>
+  <div class="sheet">
+    <header>
+      <h2 id="modaltitle">Export selection</h2>
+      <div class="split">
+        <button id="ex-codes" aria-pressed="true">Codes</button>
+        <button id="ex-links" aria-pressed="false">Links</button>
+      </div>
+      <button id="ex-close">Close</button>
+    </header>
+    <textarea id="csv" readonly spellcheck="false" aria-label="CSV data"></textarea>
+    <footer>
+      <p class="note">Semicolon-separated, so Excel opens it straight into columns.</p>
+      <button id="ex-copy">Copy</button>
+      <button id="ex-download">Download CSV</button>
+    </footer>
+  </div>
 </div>
 
 <script>
@@ -266,7 +385,7 @@ const MACHINES = DATA.machines, MOPS = DATA.machine_ops;
 const M_OFF = Int32Array.from(DATA.mach_off), M_IDX = Int32Array.from(DATA.mach_idx);
 const NM = MACHINES.length;
 
-// Padres derivados de los hijos: evita duplicar 48.756 índices en el fichero.
+// Parents rebuilt from the children, so the file carries the edges only once.
 const PA_OFF = new Int32Array(N + 1), PA_IDX = new Int32Array(CH_IDX.length);
 {
   const cnt = new Int32Array(N);
@@ -280,66 +399,130 @@ const nCh = i => CH_OFF[i + 1] - CH_OFF[i];
 const nPa = i => PA_OFF[i + 1] - PA_OFF[i];
 const machinesOf = i => Array.from(M_IDX.subarray(M_OFF[i], M_OFF[i + 1]));
 
-// 0 = producto final · 1 = fabricado y consumido · 2 = comprado.
-// "Producible" sale de RATE: tener máquina asignada.
+/* Classification, straight from the RATE sheet.
+ *
+ *   CMP  no machine at all, so Ashford buys it
+ *   BLK  made on a P05M machine, bulk — including the 153 that ship as they are
+ *   FG   made on a P05P machine and consumed by nothing, so it ships
+ *   WIP  made on a P05P machine but consumed by something else
+ *
+ * No code in the data runs on both a P05M and a P05P machine, so the prefix
+ * decides on its own and the rule never has to break a tie. */
+const FG = 0, BLK = 1, WIP = 2, CMP = 3;
+const KIND_CODE = ["FG", "BLK", "WIP", "CMP"];
+const KIND_NAME = ["Finished good", "Bulk", "Work in progress", "Purchased"];
+const KIND_CLASS = ["fg", "blk", "wip", "cmp"];
+const KIND_NOTE = [
+  "Packed on a P05P machine and consumed by nothing, so it ships.",
+  "Made on a P05M machine. Bulks count as bulk even when they ship as they are.",
+  "Packed on a P05P machine, then consumed by another code.",
+  "No machine in the RATE sheet, so Ashford buys it."
+];
+
+const MACH_IS_BULK = MACHINES.map(m => m.startsWith("P05M"));
 const KIND = new Uint8Array(N);
 for (let i = 0; i < N; i++) {
-  const producible = M_OFF[i + 1] > M_OFF[i];
-  KIND[i] = !producible ? 2 : (nPa(i) === 0 ? 0 : 1);
+  if (M_OFF[i + 1] === M_OFF[i]) { KIND[i] = CMP; continue; }
+  let bulk = false;
+  for (let e = M_OFF[i]; e < M_OFF[i + 1]; e++) if (MACH_IS_BULK[M_IDX[e]]) { bulk = true; break; }
+  KIND[i] = bulk ? BLK : (nPa(i) === 0 ? FG : WIP);
 }
 
-// 1.525 de los 3.925 códigos producibles salen en varias máquinas, así que un
-// cluster por máquina obliga a elegir una. Quedarse con la primera dejaría 17
-// máquinas sin un solo punto; repartiendo cada código a la máquina que menos
-// lleve, las 63 aparecen en el mapa.
-const PRIMARY = new Int32Array(N).fill(-1);
+/* Clusters keyed on the whole set of machines a code can run on, not on one
+ * chosen machine. A code that can be made on P05P0502 and P05P0506 lands in its
+ * own 0502+0506 cluster, separate from the codes tied to either machine alone,
+ * so the fluidity is visible instead of being flattened away. That splits the
+ * 63 machines into 95 clusters, and the bulks into the most sub-groups.
+ *
+ * The set comes from RATE and never changes, so the ids are built once here. */
+const CLUSTER = new Int32Array(N);
+const CLUSTER_META = [];
 {
-  const load = new Int32Array(NM);
-  const orden = [];
-  for (let i = 0; i < N; i++) if (M_OFF[i + 1] > M_OFF[i]) orden.push(i);
-  orden.sort((a, b) => (M_OFF[a + 1] - M_OFF[a]) - (M_OFF[b + 1] - M_OFF[b]) || a - b);
-  for (const i of orden) {
-    let best = M_IDX[M_OFF[i]];
-    for (let e = M_OFF[i] + 1; e < M_OFF[i + 1]; e++) if (load[M_IDX[e]] < load[best]) best = M_IDX[e];
-    PRIMARY[i] = best; load[best]++;
+  const byKey = new Map();
+  for (let i = 0; i < N; i++) {
+    // M_IDX is emitted sorted per code, so the key is already canonical.
+    const ms = Array.from(M_IDX.subarray(M_OFF[i], M_OFF[i + 1]));
+    const key = ms.length ? ms.join(",") : "CMP";
+    let id = byKey.get(key);
+    if (id === undefined) {
+      id = CLUSTER_META.length;
+      byKey.set(key, id);
+      // Machine names all start with P05, so dropping it on the multi-machine
+      // labels buys room without losing anything. Past two names the label
+      // outgrows the box, so the rest become a count and the full set stays in
+      // the detail panel. This caps every label at 13 characters.
+      const short = ms.map(m => MACHINES[m].slice(3));
+      CLUSTER_META.push({
+        machines: ms,
+        cmp: ms.length === 0,
+        label: !ms.length ? "PURCHASED"
+          : ms.length === 1 ? MACHINES[ms[0]]
+          : ms.length === 2 ? short.join("+")
+          : short.slice(0, 2).join("+") + "+" + (ms.length - 2),
+        op: ms.length ? MOPS[ms[0]] : ""
+      });
+    }
+    CLUSTER[i] = id;
   }
 }
+const NC = CLUSTER_META.length;
 
-// Cluster efectivo de cada código. Al filtrar por máquinas, un código que salga
-// en una de las elegidas se dibuja en esa, no en la que le tocase por reparto:
-// si pides una máquina, esperas ver ahí todo lo que produce.
-const CLUSTER = new Int32Array(N);
-function assignClusters(prefer) {
-  CLUSTER.set(PRIMARY);
-  if (!prefer || !prefer.size) return;
-  for (let i = 0; i < N; i++)
-    for (let e = M_OFF[i]; e < M_OFF[i + 1]; e++)
-      if (prefer.has(M_IDX[e])) { CLUSTER[i] = M_IDX[e]; break; }
-}
-assignClusters(null);
-const KIND_NAME = ["Producto final", "Fabricado en Ashford", "Comprado"];
-const KIND_CLASS = ["fg", "made", "bought"];
-
-// Índice inverso máquina -> códigos que produce.
+// Reverse index: machine -> the codes it produces.
 const MACH_NODES = Array.from({ length: NM }, () => []);
 for (let i = 0; i < N; i++)
   for (let e = M_OFF[i]; e < M_OFF[i + 1]; e++) MACH_NODES[M_IDX[e]].push(i);
 
 /* ================================================================== *
- * Estado de la vista
+ * View state
  *
- * Posiciones y pertenencia viven en arrays tipados indexados por código
- * global: con 48.756 aristas, un Map por nodo se nota en cada repintado.
+ * Positions and membership live in typed arrays indexed by global code: with
+ * 48,756 edges, a Map lookup per node shows up on every redraw.
  * ================================================================== */
 const PX = new Float64Array(N), PY = new Float64Array(N);
 const INVIEW = new Uint8Array(N), LVL = new Int32Array(N);
 
-let view = { nodes: new Int32Array(0), edges: new Int32Array(0), big: false, r: 9, labels: true, clusters: [] };
+let view = { nodes: new Int32Array(0), edges: new Int32Array(0), big: false, r: 9, labels: true, clusters: [], banners: [] };
 let scope = { kind: "code", seeds: [], dir: "both", label: "" };
 let layoutMode = "tree", groupLinks = false, autoGroup = true;
 let selected = -1, hovered = -1;
 
-/** Cierre transitivo hacia arriba (consumidores) y/o hacia abajo (componentes). */
+// Box selection. Kept outside the view and indexed by global code, so changing
+// scope does not lose what is already marked, which is what you expect from a
+// selection that accumulates.
+const MARKED = new Uint8Array(N);
+let nMarked = 0, multiMode = false, band = null;
+
+/* Ownership. The class shows as the ring around a point and the owner as its
+ * fill, so a code with nobody on it stays a hollow ring. Assignments are keyed
+ * on the code itself rather than its index, so they survive the graph being
+ * rebuilt from a newer extract, and are held in the browser so a reorganisation
+ * spanning several sittings is not lost on a reload. */
+const OWNERS = ["Sr planner 1", "Sr planner 2", "Jr planner 1", "Jr planner 2", "Intern"];
+const NO_OWNER = -1;
+const OWNER = new Int8Array(N).fill(NO_OWNER);
+const STORE_KEY = "ashford-ownership-v1";
+
+function loadOwners() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    const at = new Map(CODES.map((c, i) => [c, i]));
+    for (const code in saved) {
+      const i = at.get(code), o = saved[code];
+      if (i !== undefined && o >= 0 && o < OWNERS.length) OWNER[i] = o;
+    }
+  } catch { /* storage can be blocked; ownership just starts empty */ }
+}
+function saveOwners() {
+  try {
+    const out = {};
+    for (let i = 0; i < N; i++) if (OWNER[i] !== NO_OWNER) out[CODES[i]] = OWNER[i];
+    localStorage.setItem(STORE_KEY, JSON.stringify(out));
+  } catch { /* nothing to do: the page still works, it just will not remember */ }
+}
+
+/** Transitive closure upwards (consumers) and/or downwards (components). */
 function collect(seeds, dir) {
   INVIEW.fill(0);
   const out = [];
@@ -354,7 +537,7 @@ function collect(seeds, dir) {
       }
     }
   };
-  // Hacia arriba primero, para que todo alcance a sus productos finales.
+  // Upwards first, so everything reaches the products that ship it.
   if (dir !== "down") walk(PA_OFF, PA_IDX);
   if (dir !== "up") walk(CH_OFF, CH_IDX);
 
@@ -365,9 +548,12 @@ function collect(seeds, dir) {
 }
 
 /* ------------------------------------------------------------------ *
- * Colocación en capas: productos finales arriba, flechas hacia abajo
+ * Layered layout: what ships on top, arrows pointing down
  * ------------------------------------------------------------------ */
-function layoutLayered(nodes, edges) {
+/** Fills LVL by longest path from the subgraph roots, so level 0 is whatever
+ *  nothing consumes. Shared by both layouts: the clustered one needs the same
+ *  depths to stack its blocks. */
+function topoLevels(nodes, edges) {
   const indeg = new Int32Array(N);
   for (let i = 0; i < edges.length; i += 2) indeg[edges[i + 1]]++;
   for (const n of nodes) LVL[n] = 0;
@@ -388,11 +574,16 @@ function layoutLayered(nodes, edges) {
 
   let maxLvl = 0;
   for (const n of nodes) if (LVL[n] > maxLvl) maxLvl = LVL[n];
+  return { order, maxLvl };
+}
+
+function layoutLayered(nodes, edges) {
+  const { order, maxLvl } = topoLevels(nodes, edges);
   const bands = Array.from({ length: maxLvl + 1 }, () => []);
   for (const n of order) bands[LVL[n]].push(n);
 
-  // Barrido baricéntrico: cada nodo se acerca a la media de sus vecinos
-  // en la capa contigua, lo que reduce cruces de flechas.
+  // Barycentre sweep: each node drifts towards the mean position of its
+  // neighbours on the adjacent layer, which cuts down crossing arrows.
   const rank = new Int32Array(N).fill(-1);
   const reindex = () => bands.forEach(b => b.forEach((n, i) => rank[n] = i));
   const mean = (n, off, idx) => {
@@ -407,11 +598,11 @@ function layoutLayered(nodes, edges) {
     for (let L = maxLvl - 1; L >= 0; L--) { bands[L].sort((a, b) => mean(a, CH_OFF, CH_IDX) - mean(b, CH_OFF, CH_IDX)); reindex(); }
   }
 
-  // Un nivel puede abrirse en un abanico de decenas de comprados. En una sola
-  // fila el dibujo se estira hasta que las etiquetas dejan de leerse, así que
-  // los niveles anchos se reparten en varias filas. La separación entre
-  // niveles es mayor que entre filas de un mismo nivel: la jerarquía se sigue
-  // leyendo de arriba abajo.
+  // A level can fan out into dozens of purchased codes. On a single row the
+  // drawing stretches until the labels stop being readable, so wide levels wrap
+  // onto several rows. The gap between levels stays larger than the gap between
+  // rows of one level, so the hierarchy still reads top to bottom.
+  //
   const big = nodes.length > 400;
   const xgap = big ? 24 : 128, rowGap = big ? 34 : 62, bandGap = big ? 190 : 132;
   const perRow = bands.map(b => Math.max(1, Math.min(b.length, Math.ceil(Math.sqrt(b.length * 2.6)))));
@@ -429,126 +620,181 @@ function layoutLayered(nodes, edges) {
     y += (rows - 1) * rowGap + bandGap;
   });
 
-  return { big, r: big ? 3.2 : 9, labels: !big, clusters: [] };
+  return { big, r: big ? 3.2 : 9, labels: !big, clusters: [], banners: [] };
 }
 
 /* ------------------------------------------------------------------ *
- * Colocación en clusters: un bloque por máquina, más uno de comprados
+ * Clustered layout: one block per machine set, stacked by depth
  * ------------------------------------------------------------------ */
-function layoutClusters(nodes) {
-  const groups = new Map();          // clave de cluster -> códigos
-  for (const n of nodes) {
-    const g = CLUSTER[n];
-    if (!groups.has(g)) groups.set(g, []);
-    groups.get(g).push(n);
-  }
-  // Orden de lectura: primero la etapa 0040 (P05M), luego la 0010 (P05P) y al
-  // final el bloque de comprados, que es siempre el más grande.
-  const keys = [...groups.keys()].sort((a, b) => {
-    if (a === -1) return 1;
-    if (b === -1) return -1;
-    return MOPS[b].localeCompare(MOPS[a]) || MACHINES[a].localeCompare(MACHINES[b]);
-  });
+function layoutClusters(nodes, edges) {
+  topoLevels(nodes, edges);
 
-  // Ancho mínimo para que el nombre de la máquina quepa siempre: si no, las
-  // cajas pequeñas dejan el rótulo asomando sobre la de al lado.
-  const gap = 15, pad = 20, head = 36, minW = 116;
-  const boxes = keys.map(key => {
-    const list = groups.get(key);
-    const cols = Math.max(1, Math.ceil(Math.sqrt(list.length * 1.25)));
-    const rows = Math.ceil(list.length / cols);
+  // Machine blocks group by their set of machines. Purchased codes have no
+  // machine to group on, so they split by depth instead: one block per level.
+  // LVL is the longest path from a root, so a component used at several depths
+  // lands on the deepest one it reaches.
+  const groups = new Map();
+  for (const n of nodes) {
+    const id = CLUSTER[n], cmp = CLUSTER_META[id].cmp;
+    const key = cmp ? "c" + LVL[n] : id;
+    let g = groups.get(key);
+    if (!g) { g = { meta: CLUSTER_META[id], cmp, list: [] }; groups.set(key, g); }
+    g.list.push(n);
+  }
+
+  // Minimum width so the label always fits. Without it, small boxes let their
+  // label spill over the block next door.
+  const gap = 15, pad = 20, head = 36, minW = 142;
+  const boxes = [...groups.values()].map(g => {
+    const cols = Math.max(1, Math.ceil(Math.sqrt(g.list.length * 1.25)));
+    const rows = Math.ceil(g.list.length / cols);
+    let sum = 0;
+    for (const n of g.list) sum += LVL[n];
     return {
-      key, list, cols, rows,
+      ...g, cols, rows,
+      // A purchased block holds one level exactly; a machine block is placed on
+      // the average of its codes' depths.
+      level: g.cmp ? LVL[g.list[0]] : sum / g.list.length,
       w: Math.max(minW, cols * gap + pad * 2),
       h: rows * gap + pad * 2 + head
     };
   });
 
-  // Empaquetado por estanterías: se van colocando de izquierda a derecha y se
-  // salta de fila al pasar del ancho objetivo, que sale del área total para
-  // que el conjunto quede aproximadamente cuadrado.
-  const area = boxes.reduce((s, b) => s + b.w * b.h, 0);
-  const target = Math.max(...boxes.map(b => b.w), Math.sqrt(area * 1.7));
-  let cx = 0, cy = 0, shelf = 0;
-  const clusters = [];
+  // Blocks are stacked by depth, so the machines that only turn out finished
+  // goods sit on top and the deepest bulks at the bottom. It is deliberately
+  // approximate for machine blocks: one whose codes sit on several levels lands
+  // on their average.
+  const cmpByLevel = new Map();
+  const bands = new Map();
   for (const b of boxes) {
-    if (cx > 0 && cx + b.w > target) { cx = 0; cy += shelf + 26; shelf = 0; }
-    b.x = cx; b.y = cy;
-    shelf = Math.max(shelf, b.h);
-    cx += b.w + 26;
+    if (b.cmp) { cmpByLevel.set(b.level, b); continue; }
+    const L = Math.round(b.level);
+    if (!bands.has(L)) bands.set(L, []);
+    bands.get(L).push(b);
+  }
+  const levels = [...new Set([...bands.keys(), ...cmpByLevel.keys()])].sort((a, b) => a - b);
+  const machBoxes = boxes.filter(b => !b.cmp);
 
-    const inset = (b.w - b.cols * gap) / 2;   // centra la retícula en cajas ensanchadas
+  // Shelf packing inside each band: boxes go left to right, biggest first, and
+  // wrap once they pass the target width so the whole thing lands roughly
+  // square.
+  const area = machBoxes.reduce((s, b) => s + b.w * b.h, 0);
+  const target = Math.max(...boxes.map(b => b.w), Math.sqrt(area * 1.5));
+  const gapCol = 26, gapRow = 26, gapBand = 150;
+
+  const clusters = [];
+  const place = b => {
+    const inset = (b.w - b.cols * gap) / 2;   // centre the grid in widened boxes
     b.list.forEach((n, i) => {
       PX[n] = b.x + inset + ((i % b.cols) + 0.5) * gap;
       PY[n] = b.y + head + pad + (((i / b.cols) | 0) + 0.5) * gap;
     });
     clusters.push({
-      x: b.x, y: b.y, w: b.w, h: b.h, n: b.list.length,
-      label: b.key === -1 ? "COMPRADOS" : MACHINES[b.key],
-      sub: b.key === -1 ? `${b.list.length} códigos` : `op ${MOPS[b.key]} · ${b.list.length}`
+      x: b.x, y: b.y, w: b.w, h: b.h,
+      label: b.meta.label,
+      // Kept terse so the second line fits the narrowest box too: spelled out,
+      // "op 0040 · 2 mach · 35" runs past the minimum width.
+      sub: b.cmp ? `level ${b.level} · ${b.list.length}`
+        : `op ${b.meta.op} · ${b.meta.machines.length > 1 ? b.meta.machines.length + "m · " : ""}${b.list.length}`
     });
+  };
+
+  // Purchased blocks keep a column of their own to the right of the machines,
+  // each one level with the band it belongs to.
+  const cmpX = target + 90;
+  const rightEdge = cmpX + Math.max(0, ...[...cmpByLevel.values()].map(b => b.w));
+
+  let y = 0;
+  const banners = [];
+  for (const L of levels) {
+    const band = (bands.get(L) || []).sort((a, b) => b.list.length - a.list.length);
+    const top = y;
+    let x = 0, rowY = top, rowH = 0;
+    for (const b of band) {
+      if (x > 0 && x + b.w > target) { x = 0; rowY += rowH + gapRow; rowH = 0; }
+      b.x = x; b.y = rowY;
+      rowH = Math.max(rowH, b.h);
+      x += b.w + gapCol;
+      place(b);
+    }
+    let bottom = band.length ? rowY + rowH : top;
+
+    const cb = cmpByLevel.get(L);
+    if (cb) {
+      cb.x = cmpX; cb.y = top;
+      place(cb);
+      bottom = Math.max(bottom, top + cb.h);
+    }
+
+    banners.push({ level: L, y: top, n: band.length + (cb ? 1 : 0), w: rightEdge });
+    y = bottom + gapBand;
   }
-  return { big: nodes.length > 400, r: nodes.length > 400 ? 3.4 : 6, labels: false, clusters };
+  return {
+    big: nodes.length > 400, r: nodes.length > 400 ? 3.4 : 6, labels: false,
+    clusters, banners
+  };
 }
 
 /* ================================================================== *
- * Aplicar un alcance
+ * Applying a scope
  * ================================================================== */
 function setScope(kind, seeds, dir, label) {
   scope = { kind, seeds, dir, label };
   const busy = document.getElementById("busy");
   busy.classList.add("on");
-  // Un frame de respiro para que se pinte el aviso antes de bloquear el hilo.
+  // One spare frame so the notice paints before the thread blocks.
   requestAnimationFrame(() => requestAnimationFrame(() => {
     const { nodes, edges } = collect(seeds, dir);
-    assignClusters(kind === "machines" ? pickedMachines : null);
-    if (autoGroup) groupLinks = nodes.length > 2500;
-    const L = layoutMode === "clusters" ? layoutClusters(nodes) : layoutLayered(nodes, edges);
+    // Clustered blocks sit far apart, so individual edges cross the whole
+    // drawing and pile into a grey mass much sooner than in the layered view.
+    if (autoGroup) groupLinks = nodes.length > 2500 ||
+      (layoutMode === "clusters" && edges.length / 2 > 2000);
+    const L = layoutMode === "clusters" ? layoutClusters(nodes, edges) : layoutLayered(nodes, edges);
     view = { nodes, edges, ...L };
     buildLinkGroups();
     buildGrid();
     busy.classList.remove("on");
     syncTools();
     describeScope();
+    renderSelection();   // how many marks fall in view changes
     fit();
     if (selected >= 0) select(selected);
   }));
 }
 
 function describeScope() {
-  const k = [0, 0, 0];
-  for (const n of view.nodes) k[KIND[n]]++;
+  const c = [0, 0, 0, 0];
+  for (const n of view.nodes) c[KIND[n]]++;
   const links = groupLinks && view.linkGroups
-    ? `${view.linkGroups.length / 3} enlaces agrupados`
-    : `${view.edges.length / 2} enlaces`;
+    ? `${view.linkGroups.length / 3} bundled links`
+    : `${view.edges.length / 2} links`;
   document.getElementById("scope").innerHTML =
-    `<b>${scope.label}</b> — ${view.nodes.length} códigos, ${links}` +
-    ` · ${k[0]} finales, ${k[1]} fabricados, ${k[2]} comprados`;
+    `<b>${scope.label}</b> — ${view.nodes.length} codes, ${links} · ` +
+    KIND_CODE.map((name, i) => `${c[i]} ${name}`).join(", ");
 }
 
-/** Resume las aristas entre clusters en una sola línea por par, con grosor
- *  según cuántas relaciones agrupa. Es lo que hace ligero el mapa completo. */
+/** Sums the edges between two clusters into one line, thickness set by how
+  *  many relations it stands for. This is what keeps the whole map light. */
 function buildLinkGroups() {
   if (!groupLinks) { view.linkGroups = null; return; }
   const acc = new Map();
   for (let i = 0; i < view.edges.length; i += 2) {
     const a = CLUSTER[view.edges[i]], b = CLUSTER[view.edges[i + 1]];
     if (a === b) continue;
-    const key = a * (NM + 2) + b;
-    acc.set(key, (acc.get(key) || 0) + 1);
+    acc.set(a * NC + b, (acc.get(a * NC + b) || 0) + 1);
   }
   const flat = [];
-  for (const [key, c] of acc) flat.push(Math.floor(key / (NM + 2)), key % (NM + 2), c);
+  for (const [key, c] of acc) flat.push((key / NC) | 0, key % NC, c);
   view.linkGroups = flat;
-  // Centro de cada cluster, para anclar las líneas agrupadas.
-  const cx = new Float64Array(NM + 1), cy = new Float64Array(NM + 1), cn = new Int32Array(NM + 1);
-  for (const n of view.nodes) { const g = CLUSTER[n] + 1; cx[g] += PX[n]; cy[g] += PY[n]; cn[g]++; }
-  for (let g = 0; g <= NM; g++) if (cn[g]) { cx[g] /= cn[g]; cy[g] /= cn[g]; }
+  // Centre of each cluster, to anchor the bundled lines.
+  const cx = new Float64Array(NC), cy = new Float64Array(NC), cn = new Int32Array(NC);
+  for (const n of view.nodes) { const g = CLUSTER[n]; cx[g] += PX[n]; cy[g] += PY[n]; cn[g]++; }
+  for (let g = 0; g < NC; g++) if (cn[g]) { cx[g] /= cn[g]; cy[g] /= cn[g]; }
   view.cx = cx; view.cy = cy;
 }
 
 /* ================================================================== *
- * Lienzo
+ * Canvas
  * ================================================================== */
 const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
 let k = 1, tx = 0, ty = 0, dpr = 1;
@@ -558,15 +804,16 @@ function readPalette() {
   const s = getComputedStyle(document.documentElement);
   const g = p => s.getPropertyValue(p).trim();
   pal = {
-    fg: g("--fg"), made: g("--made"), bought: g("--bought"), bg: g("--canvas-bg"),
+    fg: g("--fg"), blk: g("--blk"), wip: g("--wip"), cmp: g("--cmp"), bg: g("--canvas-bg"),
     edge: g("--edge"), hot: g("--edge-hot"), ink: g("--ink"), ink2: g("--ink-2"), ink3: g("--ink-3"),
-    cluster: g("--cluster"), clusterLine: g("--cluster-line"), mono: g("--mono")
+    cluster: g("--cluster"), clusterLine: g("--cluster-line"), mono: g("--mono"), pick: g("--pick"),
+    own: OWNERS.map((_, i) => g("--own" + i))
   };
 }
 
 function resize() {
-  // Con decenas de miles de aristas, pintar a 2x cuadruplica el relleno sin
-  // aportar nada: los puntos ya son de 3 px.
+  // With tens of thousands of edges, painting at 2x quadruples the fill rate
+  // for nothing: the points are 3 px across already.
   dpr = Math.min(window.devicePixelRatio || 1, view.big ? 1.25 : 2);
   const r = cv.getBoundingClientRect();
   cv.width = Math.max(1, Math.round(r.width * dpr));
@@ -590,7 +837,7 @@ function fit() {
   draw();
 }
 
-/* --- rejilla espacial: buscar el punto bajo el cursor sin recorrer 7.176 --- */
+/* --- spatial grid: find the point under the cursor without scanning 7,176 --- */
 let grid = null;
 function buildGrid() {
   const nodes = view.nodes;
@@ -636,14 +883,26 @@ function draw() {
   if (!view.nodes.length) return;
   ctx.setTransform(k * dpr, 0, 0, k * dpr, tx * dpr, ty * dpr);
 
-  const R = view.r, focus = hovered >= 0 ? hovered : selected;
+  // A focus outside the current view would dim every point and highlight none,
+  // which happens whenever the scope changes under a selected code.
+  const R = view.r;
+  let focus = hovered >= 0 ? hovered : selected;
+  if (focus >= 0 && !INVIEW[focus]) focus = -1;
   const near = focus >= 0 ? new Set([focus]) : null;
   if (near) {
     for (let e = CH_OFF[focus]; e < CH_OFF[focus + 1]; e++) near.add(CH_IDX[e]);
     for (let e = PA_OFF[focus]; e < PA_OFF[focus + 1]; e++) near.add(PA_IDX[e]);
   }
 
-  // Cajas de cluster.
+  // Level rules first, under everything: a hairline stays visible at any zoom,
+  // whereas the banner text disappears once it drops below 5 real pixels.
+  ctx.strokeStyle = pal.clusterLine; ctx.lineWidth = 1 / k; ctx.globalAlpha = 1;
+  for (const b of view.banners) {
+    if (b.level === 0) continue;
+    ctx.beginPath(); ctx.moveTo(0, b.y - 76); ctx.lineTo(b.w, b.y - 76); ctx.stroke();
+  }
+
+  // Cluster boxes.
   for (const c of view.clusters) {
     ctx.globalAlpha = 1;
     ctx.fillStyle = pal.cluster; ctx.strokeStyle = pal.clusterLine; ctx.lineWidth = 1 / k;
@@ -651,19 +910,21 @@ function draw() {
   }
 
   if (groupLinks && view.linkGroups) {
-    // Una línea por par de clusters, de grosor proporcional a las relaciones.
+    // One line per pair of clusters, thickness proportional to the relations.
     const L = view.linkGroups;
     let maxw = 1;
     for (let i = 2; i < L.length; i += 3) if (L[i] > maxw) maxw = L[i];
-    ctx.strokeStyle = pal.edge; ctx.globalAlpha = .5;
+    // Kept faint and thin: stacking the clusters by level made these lines long
+    // enough that a few hundred of them piled into a grey mass over the blocks.
+    ctx.strokeStyle = pal.edge; ctx.globalAlpha = .2;
     for (let i = 0; i < L.length; i += 3) {
-      const a = L[i] + 1, b = L[i + 1] + 1;
-      ctx.lineWidth = Math.max(0.6, (L[i + 2] / maxw) * 7) / k;
+      const a = L[i], b = L[i + 1];
+      ctx.lineWidth = Math.max(0.5, (L[i + 2] / maxw) * 3.5) / k;
       ctx.beginPath(); ctx.moveTo(view.cx[a], view.cy[a]); ctx.lineTo(view.cx[b], view.cy[b]); ctx.stroke();
     }
   } else {
-    // Dos pasadas sobre las aristas sin construir listas intermedias: con
-    // 48.756 aristas, reservar arrays en cada repintado se nota.
+    // Two passes over the edges with no intermediate lists: at 48,756 edges,
+    // allocating arrays on every redraw is measurable.
     const E = view.edges, curve = !view.big && !view.clusters.length;
     const pass = (wantHot, color, width, alpha) => {
       ctx.globalAlpha = alpha; ctx.strokeStyle = color; ctx.lineWidth = width / k;
@@ -680,7 +941,9 @@ function draw() {
       }
       ctx.stroke();
     };
-    pass(false, pal.edge, 1.1, near ? 0.26 : 0.8);
+    // Same reason: long edges between blocks need to be fainter than the short
+    // parent-to-child hops of the layered view.
+    pass(false, pal.edge, 1.1, near ? 0.24 : (view.clusters.length ? 0.3 : 0.8));
     if (near) pass(true, pal.hot, 1.9, 1);
 
     if (curve && k > 0.42) {
@@ -693,25 +956,40 @@ function draw() {
     }
   }
 
-  // Puntos.
-  const cols = [pal.fg, pal.made, pal.bought];
+  // Points: an outer disc in the class colour with an inner disc in the owner's
+  // colour on top. Two filled discs rather than a stroked ring, because a stroke
+  // wide enough to read at this size leaves no room for the fill inside it.
+  // An unowned code gets the background as its fill, so it reads as hollow.
+  // Being selected shows as a halo underneath rather than a fill on top, so a
+  // marked point still shows both its class and its owner while you work.
+  const cols = [pal.fg, pal.blk, pal.wip, pal.cmp];
   ctx.lineWidth = 2 / k;
   for (const n of view.nodes) {
     const dim = near && !near.has(n);
     ctx.globalAlpha = dim ? 0.26 : 1;
-    ctx.beginPath();
-    ctx.arc(PX[n], PY[n], n === selected ? R * 1.5 : R, 0, 6.2832);
-    if (KIND[n] === 2) { ctx.fillStyle = pal.bg; ctx.fill(); ctx.strokeStyle = cols[2]; ctx.stroke(); }
-    else { ctx.fillStyle = cols[KIND[n]]; ctx.fill(); }
+    const r = n === selected ? R * 1.5 : R;
+    if (MARKED[n]) {
+      ctx.beginPath(); ctx.arc(PX[n], PY[n], r * 1.55, 0, 6.2832);
+      ctx.fillStyle = pal.pick; ctx.fill();
+    }
+    ctx.beginPath(); ctx.arc(PX[n], PY[n], r, 0, 6.2832);
+    ctx.fillStyle = cols[KIND[n]]; ctx.fill();
     if (n === selected || n === hovered) { ctx.strokeStyle = pal.ink; ctx.stroke(); }
+    ctx.beginPath(); ctx.arc(PX[n], PY[n], r * 0.56, 0, 6.2832);
+    ctx.fillStyle = OWNER[n] === NO_OWNER ? pal.bg : pal.own[OWNER[n]];
+    ctx.fill();
   }
 
-  // Rótulos de cluster y códigos del grafo van en unidades del mundo, no de
-  // pantalla: así encogen con el zoom junto a la caja que los contiene y nunca
-  // se montan sobre el bloque de al lado. Por debajo de 5 px reales no se leen,
-  // y dibujarlos solo sería ruido.
+  // Cluster labels and graph codes are sized in drawing units, not screen pixels,
+  // so they shrink with the zoom alongside the box holding them and never ride
+  // over the block next door. Below 5 real pixels they are unreadable, and
+  // drawing them would only add noise.
   ctx.globalAlpha = 1; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
   if (k * 13 >= 5) {
+    // Level banner above each band, so the vertical order reads as depth.
+    ctx.fillStyle = pal.ink3; ctx.font = `600 13px ${pal.mono}`;
+    for (const b of view.banners)
+      ctx.fillText(`LEVEL ${b.level}${b.level === 0 ? " · ships" : ""}`, 0, b.y - 14);
     for (const c of view.clusters) {
       ctx.fillStyle = pal.ink2; ctx.font = `600 13px ${pal.mono}`;
       ctx.fillText(c.label, c.x + 14, c.y + 17);
@@ -720,8 +998,8 @@ function draw() {
     }
   }
 
-  // Códigos: todos mientras el grafo sea pequeño; en los grandes solo el punto
-  // activo, que es lo que mantiene ligero el mapa completo.
+  // Codes: all of them while the graph is small; on the big ones only the active
+  // point, which is what keeps the whole map light.
   ctx.textAlign = "center"; ctx.textBaseline = "top";
   if (view.labels && k * 11 >= 5) {
     ctx.font = `11px ${pal.mono}`;
@@ -731,8 +1009,8 @@ function draw() {
       ctx.fillText(CODES[n], PX[n], PY[n] + R + 6);
     }
   } else {
-    // Sin etiquetas fijas, el punto activo se rotula como llamada a tamaño
-    // constante, para que se lea igual de cerca que de lejos.
+    // With no standing labels, the active point gets a callout at constant size,
+    // so it reads the same close up and far out.
     ctx.font = `${12 / k}px ${pal.mono}`;
     for (const n of [selected, hovered]) {
       if (n < 0 || !INVIEW[n]) continue;
@@ -745,30 +1023,66 @@ function draw() {
   }
   ctx.globalAlpha = 1;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  // The selection rectangle is drawn in screen coordinates: it follows the
+  // cursor, not the drawing, the same as in any file manager.
+  if (band) {
+    const x = Math.min(band.x0, band.x1), y = Math.min(band.y0, band.y1);
+    const w = Math.abs(band.x1 - band.x0), h = Math.abs(band.y1 - band.y0);
+    ctx.fillStyle = pal.pick; ctx.globalAlpha = .12; ctx.fillRect(x, y, w, h);
+    ctx.globalAlpha = .9; ctx.strokeStyle = pal.pick; ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]); ctx.strokeRect(x + .5, y + .5, w, h); ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+  }
 }
 
 /* ================================================================== *
- * Interacción
+ * Interaction
  * ================================================================== */
 let drag = null;
+const local = ev => { const r = cv.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; };
+const world = ev => { const p = local(ev); return { x: (p.x - tx) / k, y: (p.y - ty) / k }; };
+
 cv.addEventListener("pointerdown", ev => {
   cv.setPointerCapture(ev.pointerId);
   const n = nodeAt(ev.clientX, ev.clientY);
-  if (n >= 0) {
-    const r = cv.getBoundingClientRect();
-    drag = { node: n, dx: PX[n] - (ev.clientX - r.left - tx) / k, dy: PY[n] - (ev.clientY - r.top - ty) / k, moved: false };
+  const wantPan = ev.shiftKey || ev.button === 1;
+
+  // In box-select mode the rectangle wins over moving a single point. The whole
+  // map has a point on nearly every pixel, so requiring empty background to
+  // start would make the rectangle impossible to begin there. Only an already
+  // marked point starts a drag, and it drags the whole block.
+  let mode;
+  if (wantPan) mode = "pan";
+  else if (multiMode) mode = (n >= 0 && MARKED[n]) ? "block" : "band";
+  else mode = n >= 0 ? "node" : "pan";
+
+  if (mode === "block") {
+    drag = { mode, node: n, last: world(ev), moved: false };
+  } else if (mode === "node") {
+    const w = world(ev);
+    drag = { mode, node: n, dx: PX[n] - w.x, dy: PY[n] - w.y, moved: false };
+  } else if (mode === "band") {
+    const p = local(ev);
+    drag = { mode, node: n, moved: false };
+    band = { x0: p.x, y0: p.y, x1: p.x, y1: p.y };
   } else {
-    drag = { node: -1, x: ev.clientX - tx, y: ev.clientY - ty, moved: false };
+    drag = { mode, node: n, x: ev.clientX - tx, y: ev.clientY - ty, moved: false };
     cv.classList.add("grabbing");
   }
 });
+
 cv.addEventListener("pointermove", ev => {
   if (drag) {
     drag.moved = true;
-    if (drag.node >= 0) {
-      const r = cv.getBoundingClientRect();
-      PX[drag.node] = (ev.clientX - r.left - tx) / k + drag.dx;
-      PY[drag.node] = (ev.clientY - r.top - ty) / k + drag.dy;
+    if (drag.mode === "band") { const p = local(ev); band.x1 = p.x; band.y1 = p.y; }
+    else if (drag.mode === "block") {
+      const w = world(ev), dx = w.x - drag.last.x, dy = w.y - drag.last.y;
+      for (const n of view.nodes) if (MARKED[n]) { PX[n] += dx; PY[n] += dy; }
+      drag.last = w;
+    } else if (drag.mode === "node") {
+      const w = world(ev);
+      PX[drag.node] = w.x + drag.dx; PY[drag.node] = w.y + drag.dy;
     } else { tx = ev.clientX - drag.x; ty = ev.clientY - drag.y; }
     draw();
     return;
@@ -777,14 +1091,131 @@ cv.addEventListener("pointermove", ev => {
   cv.classList.toggle("on-node", n >= 0);
   if (n !== hovered) { hovered = n; draw(); }
 });
+
 function endDrag() {
-  if (drag && !drag.moved) select(drag.node);
-  else if (drag && drag.node >= 0) buildGrid();
-  drag = null; cv.classList.remove("grabbing");
+  if (!drag) return;
+  if (!drag.moved) {
+    // A click with no movement marks or unmarks; outside box-select mode it only
+    // changes which point the detail panel shows.
+    if (multiMode && drag.node >= 0) setMark(drag.node, !MARKED[drag.node]);
+    select(drag.node);
+  } else if (drag.mode === "band") markInBand();
+  else if (drag.mode === "node" || drag.mode === "block") buildGrid();
+  band = null;
+  drag = null;
+  cv.classList.remove("grabbing");
+  draw();
 }
 cv.addEventListener("pointerup", endDrag);
 cv.addEventListener("pointercancel", endDrag);
 cv.addEventListener("pointerleave", () => { if (hovered !== -1) { hovered = -1; draw(); } });
+
+/* --- box selection --- */
+function setMark(n, on) {
+  if (n < 0 || !!MARKED[n] === on) return;
+  MARKED[n] = on ? 1 : 0; nMarked += on ? 1 : -1;
+  renderSelection();
+}
+
+/** Marks every point in view whose centre falls inside the rectangle. It adds
+  *  to what is marked and never clears an earlier selection. */
+function markInBand() {
+  const x0 = Math.min(band.x0, band.x1), x1 = Math.max(band.x0, band.x1);
+  const y0 = Math.min(band.y0, band.y1), y1 = Math.max(band.y0, band.y1);
+  let added = 0;
+  for (const n of view.nodes) {
+    if (MARKED[n]) continue;
+    const sx = PX[n] * k + tx, sy = PY[n] * k + ty;
+    if (sx >= x0 && sx <= x1 && sy >= y0 && sy <= y1) { MARKED[n] = 1; nMarked++; added++; }
+  }
+  if (added) renderSelection();
+}
+
+function clearMarks() {
+  if (!nMarked) return;
+  MARKED.fill(0); nMarked = 0;
+  renderSelection(); draw();
+}
+
+/* --- ownership --- */
+
+/** The codes an assignment applies to: the marked set, or the code showing in
+ *  the detail panel when nothing is marked, so one-at-a-time still works. */
+function assignTargets() {
+  if (nMarked) return marked();
+  return selected >= 0 ? [selected] : [];
+}
+
+function assignTo(owner) {
+  const targets = assignTargets();
+  if (!targets.length) return;
+  for (const n of targets) OWNER[n] = owner;
+  saveOwners();
+  renderSelection();
+  renderOwners();
+  if (selected >= 0) select(selected);
+  draw();
+}
+
+function renderOwners() {
+  const count = new Int32Array(OWNERS.length);
+  let none = 0;
+  for (let i = 0; i < N; i++) OWNER[i] === NO_OWNER ? none++ : count[OWNER[i]]++;
+  const most = Math.max(1, ...count);
+
+  const box = document.getElementById("owners");
+  box.innerHTML = OWNERS.map((name, i) => `
+    <button class="own" data-own="${i}" title="Select every code ${name} holds">
+      <i class="swatch" style="background:var(--own${i})"></i>${name}
+      <span class="n">${count[i]}</span>
+    </button>
+    <div class="bar" style="width:${(count[i] / most) * 100}%;background:var(--own${i});opacity:${count[i] ? .75 : 0}"></div>`).join("") + `
+    <button class="own" data-own="none" title="Select every code with nobody on it">
+      <i class="swatch none"></i>Unassigned<span class="n">${none}</span>
+    </button>`;
+
+  box.querySelectorAll("[data-own]").forEach(b => b.onclick = () => {
+    const want = b.dataset.own === "none" ? NO_OWNER : +b.dataset.own;
+    let added = 0;
+    for (let i = 0; i < N; i++) if (OWNER[i] === want && !MARKED[i]) { MARKED[i] = 1; nMarked++; added++; }
+    if (added) { renderSelection(); draw(); }
+  });
+
+  const reset = document.getElementById("btn-reset");
+  reset.disabled = none === N;
+}
+
+function renderSelection() {
+  const chips = document.getElementById("selchips");
+  document.getElementById("btn-export").disabled = !nMarked;
+  document.getElementById("btn-clear").disabled = !nMarked;
+
+  const targets = assignTargets();
+  const combo = document.getElementById("assign");
+  combo.disabled = !targets.length;
+  document.getElementById("assignnote").textContent = !targets.length
+    ? "Select codes first, with the box or by clicking one."
+    : nMarked ? `Applies to the ${nMarked} selected code${nMarked === 1 ? "" : "s"}.`
+      : `Applies to ${CODES[selected]}.`;
+  const badge = document.getElementById("picked");
+  badge.classList.toggle("on", nMarked > 0);
+  badge.textContent = nMarked ? `${nMarked} selected` : "";
+
+  const head = document.getElementById("selhead");
+  if (!nMarked) {
+    head.textContent = "Selection";
+    chips.innerHTML = `<p class="empty">Turn on <b>Box select</b> and drag a rectangle across the canvas to enclose points. Every rectangle adds to what is already marked.</p>`;
+    return;
+  }
+  let inView = 0;
+  for (const n of view.nodes) if (MARKED[n]) inView++;
+  head.textContent = `Selection — ${nMarked}${inView < nMarked ? ` · ${inView} in this view` : ""}`;
+
+  const list = [];
+  for (let i = 0; i < N && list.length < 300; i++) if (MARKED[i]) list.push(i);
+  chips.innerHTML = list.map(i => `<span class="chip">${CODES[i]}</span>`).join("") +
+    (nMarked > list.length ? `<span class="chip"><i>and ${nMarked - list.length} more</i></span>` : "");
+}
 cv.addEventListener("wheel", ev => {
   ev.preventDefault();
   const r = cv.getBoundingClientRect(), mx = ev.clientX - r.left, my = ev.clientY - r.top;
@@ -794,53 +1225,62 @@ cv.addEventListener("wheel", ev => {
 }, { passive: false });
 
 /* ================================================================== *
- * Panel de detalle
+ * Detail panel
  * ================================================================== */
 function select(n) {
   selected = n;
   const box = document.getElementById("detail");
   if (n < 0) {
-    box.innerHTML = `<div class="sec"><p class="empty">Elige un código o una máquina en el panel izquierdo, o pincha un punto del grafo.</p>
-      <p class="note">Los puntos huecos son materiales que Ashford compra: no tienen máquina en la pestaña RATE
-      y por eso no cuelga nada de ellos.</p></div>`;
+    box.innerHTML = `<div class="sec"><p class="empty">Pick a code or a machine on the left, or click a point in the graph.</p>
+      <p class="note">A point's ring is its class and its fill is its owner, so a hollow one is
+      a code nobody holds yet.</p></div>`;
+    renderSelection();   // the assign box works off the selected code too
     draw(); return;
   }
   const ms = machinesOf(n);
   box.innerHTML = `
     <div class="sec">
       <p id="dcode">${CODES[n]}</p>
-      <span class="badge ${KIND_CLASS[KIND[n]]}"><i class="dot ${KIND_CLASS[KIND[n]]}"></i>${KIND_NAME[KIND[n]]}</span>
+      <span class="badge ${KIND_CLASS[KIND[n]]}"><i class="dot ${KIND_CLASS[KIND[n]]}"></i>${KIND_CODE[KIND[n]]} · ${KIND_NAME[KIND[n]]}</span>
+      <p class="note">${KIND_NOTE[KIND[n]]}</p>
     </div>
     <div class="sec">
-      <h2>Estructura</h2>
+      <h2>Structure</h2>
       <dl class="kv">
-        <dt>Componentes directos</dt><dd>${nCh(n)}</dd>
-        <dt>Lo consumen</dt><dd>${nPa(n)} código${nPa(n) === 1 ? "" : "s"}</dd>
-        <dt>Explosión completa</dt><dd>${reach(n, CH_OFF, CH_IDX)}</dd>
-        <dt>Productos finales encima</dt><dd>${finalesEncima(n)}</dd>
-        ${INVIEW[n] ? `<dt>Nivel en la vista</dt><dd>${LVL[n]}</dd>` : ""}
+        <dt>Direct components</dt><dd>${nCh(n)}</dd>
+        <dt>Used by</dt><dd>${nPa(n)} code${nPa(n) === 1 ? "" : "s"}</dd>
+        <dt>Full explosion</dt><dd>${reach(n, CH_OFF, CH_IDX)}</dd>
+        <dt>End products above</dt><dd>${endProductsAbove(n)}</dd>
+        ${INVIEW[n] ? `<dt>Level in view</dt><dd>${LVL[n]}</dd>` : ""}
       </dl>
     </div>
     <div class="sec">
-      <h2>Dónde se fabrica</h2>
-      ${ms.length
-        ? `<div class="chips">${ms.map(m => `<span class="chip">${MACHINES[m]} <i>op ${MOPS[m]}</i></span>`).join("")}</div>`
-        : `<p class="empty">Sin máquina asignada. Es material comprado.</p>`}
+      <h2>Owner</h2>
+      <span class="badge ${OWNER[n] === NO_OWNER ? "cmp" : ""}" style="${OWNER[n] === NO_OWNER ? "" : `background:var(--own${OWNER[n]});color:#fff`}">
+        ${OWNER[n] === NO_OWNER ? "Nobody yet" : OWNERS[OWNER[n]]}
+      </span>
     </div>
     <div class="sec">
-      <h2>Explorar</h2>
+      <h2>Made on</h2>
+      ${ms.length
+        ? `<div class="chips">${ms.map(m => `<span class="chip">${MACHINES[m]} <i>op ${MOPS[m]}</i></span>`).join("")}</div>`
+        : `<p class="empty">No machine assigned. Ashford buys this one.</p>`}
+    </div>
+    <div class="sec">
+      <h2>Explore</h2>
       <div class="acts">
-        <button data-act="both">Contexto completo</button>
-        <button data-act="down"${nCh(n) ? "" : " disabled"}>Solo la explosión</button>
-        <button data-act="up"${nPa(n) ? "" : " disabled"}>Solo dónde se usa</button>
+        <button data-act="both">Full context</button>
+        <button data-act="down"${nCh(n) ? "" : " disabled"}>Explosion only</button>
+        <button data-act="up"${nPa(n) ? "" : " disabled"}>Where used only</button>
       </div>
-      <p class="note">El contexto completo sube hasta los productos finales que lo llevan y baja hasta sus materias primas.</p>
+      <p class="note">Full context walks up to the products that ship this code and down to its raw materials.</p>
     </div>`;
   box.querySelectorAll("[data-act]").forEach(b => b.onclick = () => {
     const d = b.dataset.act;
     setScope("code", [n], d,
-      d === "both" ? `Contexto de ${CODES[n]}` : d === "down" ? `Explosión de ${CODES[n]}` : `Dónde se usa ${CODES[n]}`);
+      d === "both" ? `Context of ${CODES[n]}` : d === "down" ? `Explosion of ${CODES[n]}` : `Where ${CODES[n]} is used`);
   });
+  renderSelection();   // with nothing marked, the assign box targets this code
   draw();
 }
 
@@ -855,25 +1295,28 @@ function reach(n, off, idx) {
   }
   reachCache.set(key, c); return c;
 }
-function finalesEncima(n) {
+/** Codes above this one that nothing consumes, so they are what actually ships.
+ *  Counted by having no parent rather than by class, since the 153 bulks that
+ *  ship as they are stay classified BLK. */
+function endProductsAbove(n) {
   const seen = new Uint8Array(N), st = [n]; seen[n] = 1; let c = 0;
   while (st.length) {
     const x = st.pop();
-    if (KIND[x] === 0) c++;
+    if (nPa(x) === 0) c++;
     for (let e = PA_OFF[x]; e < PA_OFF[x + 1]; e++) if (!seen[PA_IDX[e]]) { seen[PA_IDX[e]] = 1; st.push(PA_IDX[e]); }
   }
   return c;
 }
 
 /* ================================================================== *
- * Panel izquierdo
+ * Left panel
  * ================================================================== */
 document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
   document.querySelectorAll("#tabs button").forEach(x => x.setAttribute("aria-selected", x === b));
   document.querySelectorAll(".pane").forEach(p => p.classList.toggle("on", p.id === "pane-" + b.dataset.pane));
 });
 
-/* --- códigos --- */
+/* --- codes --- */
 const search = document.getElementById("search");
 let kindFilters = new Set([0]);
 document.querySelectorAll("[data-filter]").forEach(b => b.onclick = () => {
@@ -890,7 +1333,7 @@ function renderCodes() {
   for (let i = 0; i < N && hits.length < 400; i++)
     if (kindFilters.has(KIND[i]) && (!q || CODES[i].includes(q))) hits.push(i);
   document.getElementById("ccount").textContent =
-    hits.length >= 400 ? "primeros 400 resultados" : `${hits.length} código${hits.length === 1 ? "" : "s"}`;
+    hits.length >= 400 ? "first 400 matches" : `${hits.length} code${hits.length === 1 ? "" : "s"}`;
   const list = document.getElementById("clist");
   list.innerHTML = hits.map(i => `
     <button class="row" data-i="${i}" aria-current="${scope.kind === "code" && scope.seeds[0] === i}">
@@ -901,11 +1344,11 @@ function renderCodes() {
     const i = +b.dataset.i;
     layoutMode = "tree";
     select(i);
-    setScope("code", [i], "both", `Contexto de ${CODES[i]}`);
+    setScope("code", [i], "both", `Context of ${CODES[i]}`);
   });
 }
 
-/* --- máquinas --- */
+/* --- machines --- */
 const msearch = document.getElementById("msearch");
 let pickedMachines = new Set();
 msearch.addEventListener("input", renderMachines);
@@ -923,7 +1366,7 @@ function renderMachines() {
   for (let m = 0; m < NM; m++) if (!q || MACHINES[m].includes(q)) hits.push(m);
   hits.sort((a, b) => MACH_NODES[b].length - MACH_NODES[a].length);
   document.getElementById("mcount").textContent =
-    `${hits.length} de ${NM} a la vista · ${pickedMachines.size} seleccionada${pickedMachines.size === 1 ? "" : "s"}`;
+    `${hits.length} of ${NM} listed · ${pickedMachines.size} selected`;
   const list = document.getElementById("mlist");
   list.innerHTML = hits.map(m => `
     <button class="row" data-m="${m}" aria-pressed="${pickedMachines.has(m)}">
@@ -944,11 +1387,134 @@ function applyMachines() {
   const names = [...pickedMachines].map(m => MACHINES[m]).sort();
   layoutMode = "clusters";
   setScope("machines", seeds, "both",
-    names.length === 1 ? `Máquina ${names[0]}` : `${names.length} máquinas: ${names.slice(0, 3).join(", ")}${names.length > 3 ? "…" : ""}`);
+    names.length === 1 ? `Machine ${names[0]}` : `${names.length} machines: ${names.slice(0, 3).join(", ")}${names.length > 3 ? "…" : ""}`);
 }
 
 /* ================================================================== *
- * Barra de herramientas
+ * Export
+ *
+ * Semicolon separator: it is what European Excel expects, so the file opens
+ * straight into columns on a double click.
+ * ================================================================== */
+const SEP = ";";
+const field = v => {
+  const s = String(v);
+  return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+const row = vs => vs.map(field).join(SEP);
+
+function marked() {
+  const out = [];
+  for (let i = 0; i < N; i++) if (MARKED[i]) out.push(i);
+  return out;
+}
+
+function csvCodigos() {
+  const rows = [row(["Code", "Class", "ClassName", "Owner", "DirectComponents", "UsedBy",
+    "FullExplosion", "EndProductsAbove", "Machines", "Operations"])];
+  for (const n of marked()) {
+    const ms = machinesOf(n);
+    rows.push(row([
+      CODES[n], KIND_CODE[KIND[n]], KIND_NAME[KIND[n]],
+      OWNER[n] === NO_OWNER ? "" : OWNERS[OWNER[n]], nCh(n), nPa(n),
+      reach(n, CH_OFF, CH_IDX), endProductsAbove(n),
+      ms.map(m => MACHINES[m]).join(" "),
+      [...new Set(ms.map(m => MOPS[m]))].join(" ")
+    ]));
+  }
+  return rows.join("\n");
+}
+
+/** Parent-component relations with both ends inside the selection. */
+function csvRelaciones() {
+  const rows = [row(["Parent", "Component", "ParentClass", "ComponentClass", "ParentOwner", "ComponentOwner"])];
+  const who = n => OWNER[n] === NO_OWNER ? "" : OWNERS[OWNER[n]];
+  for (const p of marked())
+    for (let e = CH_OFF[p]; e < CH_OFF[p + 1]; e++) {
+      const c = CH_IDX[e];
+      if (MARKED[c]) rows.push(row([CODES[p], CODES[c], KIND_CODE[KIND[p]], KIND_CODE[KIND[c]], who(p), who(c)]));
+    }
+  return rows.join("\n");
+}
+
+const modal = document.getElementById("modal");
+const csvBox = document.getElementById("csv");
+let exportKind = "codes";
+
+function renderExport() {
+  document.getElementById("ex-codes").setAttribute("aria-pressed", exportKind === "codes");
+  document.getElementById("ex-links").setAttribute("aria-pressed", exportKind === "links");
+  csvBox.value = exportKind === "codes" ? csvCodigos() : csvRelaciones();
+}
+function openExport() {
+  if (!nMarked) return;
+  renderExport();
+  modal.hidden = false; modal.classList.add("on");
+  csvBox.focus(); csvBox.select();
+}
+function closeExport() { modal.classList.remove("on"); modal.hidden = true; }
+
+{
+  const combo = document.getElementById("assign");
+  OWNERS.forEach((name, i) => combo.add(new Option(name, String(i))));
+  combo.add(new Option("Nobody — clear owner", "none"));
+  combo.onchange = () => {
+    if (combo.value === "") return;
+    assignTo(combo.value === "none" ? NO_OWNER : +combo.value);
+    combo.value = "";          // back to the prompt, ready for the next batch
+  };
+}
+
+// Two-click confirm rather than confirm(), which some embeddings suppress.
+{
+  const reset = document.getElementById("btn-reset");
+  let armed = false, timer = 0;
+  reset.onclick = () => {
+    if (!armed) {
+      armed = true; reset.textContent = "Confirm — wipe all";
+      timer = setTimeout(() => { armed = false; reset.textContent = "Clear all owners"; }, 4000);
+      return;
+    }
+    clearTimeout(timer); armed = false; reset.textContent = "Clear all owners";
+    OWNER.fill(NO_OWNER); saveOwners();
+    renderOwners(); renderSelection();
+    if (selected >= 0) select(selected);
+    draw();
+  };
+}
+
+document.getElementById("btn-export").onclick = openExport;
+document.getElementById("btn-clear").onclick = clearMarks;
+document.getElementById("ex-close").onclick = closeExport;
+document.getElementById("ex-codes").onclick = () => { exportKind = "codes"; renderExport(); };
+document.getElementById("ex-links").onclick = () => { exportKind = "links"; renderExport(); };
+modal.addEventListener("click", ev => { if (ev.target === modal) closeExport(); });
+addEventListener("keydown", ev => { if (ev.key === "Escape" && modal.classList.contains("on")) closeExport(); });
+
+document.getElementById("ex-download").onclick = ev => {
+  const name = `ashford_${exportKind === "codes" ? "codes" : "links"}_${nMarked}.csv`;
+  // Leading byte-order mark so Excel keeps the accents.
+  const blob = new Blob(["﻿" + csvBox.value], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  ev.target.textContent = "Downloaded";
+  setTimeout(() => ev.target.textContent = "Download CSV", 1800);
+};
+document.getElementById("ex-copy").onclick = async ev => {
+  const btn = ev.target;
+  let ok = false;
+  try { await navigator.clipboard.writeText(csvBox.value); ok = true; }
+  catch { csvBox.focus(); csvBox.select(); try { ok = document.execCommand("copy"); } catch { ok = false; } }
+  // If the browser blocks the clipboard the text stays selected in the box,
+  // so copying it by hand still works.
+  btn.textContent = ok ? "Copied" : "Press Ctrl+C";
+  setTimeout(() => btn.textContent = "Copy", 2200);
+};
+
+/* ================================================================== *
+ * Toolbar
  * ================================================================== */
 function syncTools() {
   document.getElementById("lay-tree").setAttribute("aria-pressed", layoutMode === "tree");
@@ -961,15 +1527,27 @@ document.getElementById("lay-clu").onclick = () => { layoutMode = "clusters"; re
 document.getElementById("btn-links").onclick = () => { autoGroup = false; groupLinks = !groupLinks; relayout(); };
 document.getElementById("btn-fit").onclick = fit;
 document.getElementById("btn-relayout").onclick = relayout;
+document.getElementById("btn-multi").onclick = ev => {
+  multiMode = !multiMode;
+  ev.currentTarget.setAttribute("aria-pressed", multiMode);
+  cv.classList.toggle("marquee", multiMode);
+  document.getElementById("hint").innerHTML = multiMode
+    ? `<span>Drag across the canvas to enclose points</span><span>Every rectangle adds</span>
+       <span>Drag a marked point to move the block</span><span>Shift-drag to pan</span>`
+    : `<span>Drag a point to move it</span><span>Drag the background to pan</span>
+       <span>Wheel to zoom</span><span>Click to read the code</span>`;
+};
 document.getElementById("btn-all").onclick = () => {
   layoutMode = "clusters";
+  // Seeds are the codes nothing consumes, which covers every tree top whether
+  // it ends up classified FG or BLK.
   const seeds = [];
-  for (let i = 0; i < N; i++) if (KIND[i] === 0) seeds.push(i);
-  setScope("all", seeds, "down", "Toda la fábrica");
+  for (let i = 0; i < N; i++) if (nPa(i) === 0) seeds.push(i);
+  setScope("all", seeds, "down", "Whole factory");
 };
 
 /* ================================================================== *
- * Arranque
+ * Startup
  * ================================================================== */
 readPalette();
 new ResizeObserver(resize).observe(document.getElementById("stage"));
@@ -977,9 +1555,12 @@ const onTheme = () => { readPalette(); draw(); };
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", onTheme);
 new MutationObserver(onTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
+loadOwners();
 renderCodes();
 renderMachines();
+renderOwners();
+renderSelection();
 select(-1);
-setScope("code", [DATA.start], "both", `Contexto de ${CODES[DATA.start]}`);
+setScope("code", [DATA.start], "both", `Context of ${CODES[DATA.start]}`);
 resize();
 </script>
