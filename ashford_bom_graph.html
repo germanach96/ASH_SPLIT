@@ -157,6 +157,8 @@
   canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
   canvas.grabbing { cursor: grabbing; }
   canvas.marquee { cursor: crosshair; }
+  canvas.on-box { cursor: move; }
+  canvas.grip { cursor: ew-resize; }
   canvas.on-node { cursor: pointer; }   /* after .marquee, so a point beats the box cursor */
   button[aria-pressed="true"].pick { background: var(--pick-soft); border-color: var(--pick); color: var(--ink); }
   /* The slot is always reserved. If the counter appeared on the first mark the
@@ -273,6 +275,7 @@
       </div>
       <button id="btn-links" aria-pressed="false" title="Sum the links between two clusters into a single line">Bundle links</button>
       <button id="btn-multi" class="pick" aria-pressed="false" title="Drag across the canvas to enclose points in a rectangle">Box select</button>
+      <button id="btn-edit" class="pick" aria-pressed="false" title="Drag a block to move it, or its right-edge grip to reshape it">Edit blocks</button>
       <span id="picked"></span>
       <button id="btn-fit">Fit</button>
       <button id="btn-relayout">Re-layout</button>
@@ -447,18 +450,13 @@ const CLUSTER_META = [];
     if (id === undefined) {
       id = CLUSTER_META.length;
       byKey.set(key, id);
-      // Machine names all start with P05, so dropping it on the multi-machine
-      // labels buys room without losing anything. Past two names the label
-      // outgrows the box, so the rest become a count and the full set stays in
-      // the detail panel. This caps every label at 13 characters.
-      const short = ms.map(m => MACHINES[m].slice(3));
+      // Every machine in the set is named on the block. A set of seven runs far
+      // wider than any sensible box, so the caption wraps onto as many lines as
+      // it needs and the header grows to fit rather than the box getting wider.
       CLUSTER_META.push({
         machines: ms,
         cmp: ms.length === 0,
-        label: !ms.length ? "PURCHASED"
-          : ms.length === 1 ? MACHINES[ms[0]]
-          : ms.length === 2 ? short.join("+")
-          : short.slice(0, 2).join("+") + "+" + (ms.length - 2),
+        names: ms.length ? ms.map(m => MACHINES[m]) : ["PURCHASED"],
         op: ms.length ? MOPS[ms[0]] : ""
       });
     }
@@ -491,6 +489,8 @@ let selected = -1, hovered = -1;
 // selection that accumulates.
 const MARKED = new Uint8Array(N);
 let nMarked = 0, multiMode = false, band = null;
+let editMode = false;
+const GRIP = 7;   // half-width of the resize grip, in screen pixels
 
 /* Ownership. The class shows as the ring around a point and the owner as its
  * fill, so a code with nobody on it stays a hollow ring. Assignments are keyed
@@ -626,6 +626,50 @@ function layoutLayered(nodes, edges) {
 /* ------------------------------------------------------------------ *
  * Clustered layout: one block per machine set, stacked by depth
  * ------------------------------------------------------------------ */
+const LABEL_FONT = "600 13px", SUB_FONT = "10px";
+const ruler = document.createElement("canvas").getContext("2d");
+const textW = (t, font) => { ruler.font = `${font} ${pal.mono || "monospace"}`; return ruler.measureText(t).width; };
+
+/** Packs the machine names into as many lines as the block width allows. A
+ *  trailing "+" marks a line that carries on below. */
+function wrapNames(names, maxW) {
+  const lines = [];
+  let cur = "";
+  for (const n of names) {
+    const join = cur ? cur + "+" + n : n;
+    if (cur && textW(join, LABEL_FONT) > maxW) { lines.push(cur + "+"); cur = n; }
+    else cur = join;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+/** Lays a block's codes on its grid and sizes the box to fit caption and grid. */
+function fitBox(c) {
+  c.lines = wrapNames(c.meta.names, c.w - c.pad * 2 + 8);
+  c.head = 14 + c.lines.length * 14 + 12;
+  const rows = Math.ceil(c.list.length / c.cols);
+  c.h = rows * c.gap + c.pad * 2 + c.head;
+  const inset = (c.w - c.cols * c.gap) / 2;
+  c.list.forEach((n, i) => {
+    PX[n] = c.x + inset + ((i % c.cols) + 0.5) * c.gap;
+    PY[n] = c.y + c.head + c.pad + (((i / c.cols) | 0) + 0.5) * c.gap;
+  });
+}
+
+/** Resizing reflows the grid: the width sets how many codes fit on a row, and
+ *  the height follows from the rows that leaves. */
+function resizeBox(c, w) {
+  c.w = Math.max(c.minW, w);
+  c.cols = Math.max(1, Math.min(c.list.length, Math.floor((c.w - c.pad * 2) / c.gap)));
+  fitBox(c);
+}
+
+/** Moves a block and everything inside it. */
+function moveBox(c, dx, dy) {
+  c.x += dx; c.y += dy;
+  for (const n of c.list) { PX[n] += dx; PY[n] += dy; }
+}
 function layoutClusters(nodes, edges) {
   topoLevels(nodes, edges);
 
@@ -642,22 +686,21 @@ function layoutClusters(nodes, edges) {
     g.list.push(n);
   }
 
-  // Minimum width so the label always fits. Without it, small boxes let their
-  // label spill over the block next door.
-  const gap = 15, pad = 20, head = 36, minW = 142;
+  // Minimum width so the sub line and one machine name always fit.
+  const gap = 15, pad = 20, minW = 124;
   const boxes = [...groups.values()].map(g => {
     const cols = Math.max(1, Math.ceil(Math.sqrt(g.list.length * 1.25)));
-    const rows = Math.ceil(g.list.length / cols);
     let sum = 0;
     for (const n of g.list) sum += LVL[n];
-    return {
-      ...g, cols, rows,
+    const c = {
+      ...g, cols, gap, pad, minW, x: 0, y: 0,
       // A purchased block holds one level exactly; a machine block is placed on
       // the average of its codes' depths.
       level: g.cmp ? LVL[g.list[0]] : sum / g.list.length,
-      w: Math.max(minW, cols * gap + pad * 2),
-      h: rows * gap + pad * 2 + head
+      w: Math.max(minW, cols * gap + pad * 2)
     };
+    fitBox(c);
+    return c;
   });
 
   // Blocks are stacked by depth, so the machines that only turn out finished
@@ -684,19 +727,9 @@ function layoutClusters(nodes, edges) {
 
   const clusters = [];
   const place = b => {
-    const inset = (b.w - b.cols * gap) / 2;   // centre the grid in widened boxes
-    b.list.forEach((n, i) => {
-      PX[n] = b.x + inset + ((i % b.cols) + 0.5) * gap;
-      PY[n] = b.y + head + pad + (((i / b.cols) | 0) + 0.5) * gap;
-    });
-    clusters.push({
-      x: b.x, y: b.y, w: b.w, h: b.h,
-      label: b.meta.label,
-      // Kept terse so the second line fits the narrowest box too: spelled out,
-      // "op 0040 · 2 mach · 35" runs past the minimum width.
-      sub: b.cmp ? `level ${b.level} · ${b.list.length}`
-        : `op ${b.meta.op} · ${b.meta.machines.length > 1 ? b.meta.machines.length + "m · " : ""}${b.list.length}`
-    });
+    fitBox(b);
+    b.sub = b.cmp ? `level ${b.level} · ${b.list.length}` : `op ${b.meta.op} · ${b.list.length}`;
+    clusters.push(b);   // the box itself, so edit mode can move and reflow it
   };
 
   // Purchased blocks keep a column of their own to the right of the machines,
@@ -902,11 +935,18 @@ function draw() {
     ctx.beginPath(); ctx.moveTo(0, b.y - 76); ctx.lineTo(b.w, b.y - 76); ctx.stroke();
   }
 
-  // Cluster boxes.
+  // Cluster boxes, with a grip on the right edge while blocks are editable.
   for (const c of view.clusters) {
     ctx.globalAlpha = 1;
-    ctx.fillStyle = pal.cluster; ctx.strokeStyle = pal.clusterLine; ctx.lineWidth = 1 / k;
+    ctx.fillStyle = pal.cluster;
+    ctx.strokeStyle = editMode ? pal.pick : pal.clusterLine;
+    ctx.lineWidth = (editMode ? 1.6 : 1) / k;
     ctx.beginPath(); ctx.rect(c.x, c.y, c.w, c.h); ctx.fill(); ctx.stroke();
+    if (editMode) {
+      const g = GRIP / k;
+      ctx.fillStyle = pal.pick;
+      ctx.fillRect(c.x + c.w - g / 2, c.y + c.h / 2 - g * 1.6, g, g * 3.2);
+    }
   }
 
   if (groupLinks && view.linkGroups) {
@@ -987,14 +1027,14 @@ function draw() {
   ctx.globalAlpha = 1; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
   if (k * 13 >= 5) {
     // Level banner above each band, so the vertical order reads as depth.
-    ctx.fillStyle = pal.ink3; ctx.font = `600 13px ${pal.mono}`;
+    ctx.fillStyle = pal.ink3; ctx.font = `${LABEL_FONT} ${pal.mono}`;
     for (const b of view.banners)
       ctx.fillText(`LEVEL ${b.level}${b.level === 0 ? " · ships" : ""}`, 0, b.y - 14);
     for (const c of view.clusters) {
-      ctx.fillStyle = pal.ink2; ctx.font = `600 13px ${pal.mono}`;
-      ctx.fillText(c.label, c.x + 14, c.y + 17);
-      ctx.fillStyle = pal.ink3; ctx.font = `10px ${pal.mono}`;
-      ctx.fillText(c.sub, c.x + 14, c.y + 30);
+      ctx.fillStyle = pal.ink2; ctx.font = `${LABEL_FONT} ${pal.mono}`;
+      c.lines.forEach((line, i) => ctx.fillText(line, c.x + 14, c.y + 17 + i * 14));
+      ctx.fillStyle = pal.ink3; ctx.font = `${SUB_FONT} ${pal.mono}`;
+      ctx.fillText(c.sub, c.x + 14, c.y + 17 + c.lines.length * 14);
     }
   }
 
@@ -1039,6 +1079,30 @@ function draw() {
 /* ================================================================== *
  * Interaction
  * ================================================================== */
+/* --- editing blocks: which one is under the cursor, and where --- */
+function clusterAt(wx, wy) {
+  // Last drawn wins, matching what the eye picks when boxes touch.
+  for (let i = view.clusters.length - 1; i >= 0; i--) {
+    const c = view.clusters[i];
+    if (wx >= c.x && wx <= c.x + c.w && wy >= c.y && wy <= c.y + c.h) return c;
+  }
+  return null;
+}
+function gripAt(wx, wy) {
+  const t = (GRIP + 4) / k;
+  for (let i = view.clusters.length - 1; i >= 0; i--) {
+    const c = view.clusters[i];
+    if (Math.abs(wx - (c.x + c.w)) <= t && Math.abs(wy - (c.y + c.h / 2)) <= t * 3) return c;
+  }
+  return null;
+}
+/** After a block moves or reflows, hit testing and the bundled links both work
+ *  off stale positions until they are rebuilt. */
+function afterBoxEdit() {
+  buildGrid();
+  buildLinkGroups();
+}
+
 let drag = null;
 const local = ev => { const r = cv.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; };
 const world = ev => { const p = local(ev); return { x: (p.x - tx) / k, y: (p.y - ty) / k }; };
@@ -1052,10 +1116,25 @@ cv.addEventListener("pointerdown", ev => {
   // map has a point on nearly every pixel, so requiring empty background to
   // start would make the rectangle impossible to begin there. Only an already
   // marked point starts a drag, and it drags the whole block.
-  let mode;
+  let mode, box = null;
   if (wantPan) mode = "pan";
+  else if (editMode) {
+    // Editing blocks takes over the canvas: the grip resizes, anywhere else
+    // inside a box drags the whole block, and the background still pans.
+    const w = world(ev);
+    box = gripAt(w.x, w.y);
+    if (box) mode = "grip";
+    else if ((box = clusterAt(w.x, w.y))) mode = "box";
+    else mode = "pan";
+  }
   else if (multiMode) mode = (n >= 0 && MARKED[n]) ? "block" : "band";
   else mode = n >= 0 ? "node" : "pan";
+
+  if (mode === "grip" || mode === "box") {
+    drag = { mode, node: n, box, last: world(ev), moved: false };
+    cv.classList.add("grabbing");
+    return;
+  }
 
   if (mode === "block") {
     drag = { mode, node: n, last: world(ev), moved: false };
@@ -1076,6 +1155,15 @@ cv.addEventListener("pointermove", ev => {
   if (drag) {
     drag.moved = true;
     if (drag.mode === "band") { const p = local(ev); band.x1 = p.x; band.y1 = p.y; }
+    else if (drag.mode === "box") {
+      const w = world(ev);
+      moveBox(drag.box, w.x - drag.last.x, w.y - drag.last.y);
+      drag.last = w;
+    }
+    else if (drag.mode === "grip") {
+      const w = world(ev);
+      resizeBox(drag.box, w.x - drag.box.x);
+    }
     else if (drag.mode === "block") {
       const w = world(ev), dx = w.x - drag.last.x, dy = w.y - drag.last.y;
       for (const n of view.nodes) if (MARKED[n]) { PX[n] += dx; PY[n] += dy; }
@@ -1085,6 +1173,13 @@ cv.addEventListener("pointermove", ev => {
       PX[drag.node] = w.x + drag.dx; PY[drag.node] = w.y + drag.dy;
     } else { tx = ev.clientX - drag.x; ty = ev.clientY - drag.y; }
     draw();
+    return;
+  }
+  if (editMode) {
+    const w = world(ev);
+    cv.classList.toggle("grip", !!gripAt(w.x, w.y));
+    cv.classList.toggle("on-box", !gripAt(w.x, w.y) && !!clusterAt(w.x, w.y));
+    if (hovered !== -1) { hovered = -1; draw(); }
     return;
   }
   const n = nodeAt(ev.clientX, ev.clientY);
@@ -1100,6 +1195,7 @@ function endDrag() {
     if (multiMode && drag.node >= 0) setMark(drag.node, !MARKED[drag.node]);
     select(drag.node);
   } else if (drag.mode === "band") markInBand();
+  else if (drag.mode === "box" || drag.mode === "grip") afterBoxEdit();
   else if (drag.mode === "node" || drag.mode === "block") buildGrid();
   band = null;
   drag = null;
@@ -1520,6 +1616,9 @@ function syncTools() {
   document.getElementById("lay-tree").setAttribute("aria-pressed", layoutMode === "tree");
   document.getElementById("lay-clu").setAttribute("aria-pressed", layoutMode === "clusters");
   document.getElementById("btn-links").setAttribute("aria-pressed", groupLinks);
+  const edit = document.getElementById("btn-edit");
+  edit.disabled = !view.clusters.length;
+  if (edit.disabled && editMode) { editMode = false; edit.setAttribute("aria-pressed", false); setHint(); }
 }
 const relayout = () => setScope(scope.kind, scope.seeds, scope.dir, scope.label);
 document.getElementById("lay-tree").onclick = () => { layoutMode = "tree"; relayout(); };
@@ -1527,16 +1626,31 @@ document.getElementById("lay-clu").onclick = () => { layoutMode = "clusters"; re
 document.getElementById("btn-links").onclick = () => { autoGroup = false; groupLinks = !groupLinks; relayout(); };
 document.getElementById("btn-fit").onclick = fit;
 document.getElementById("btn-relayout").onclick = relayout;
+document.getElementById("btn-edit").onclick = ev => {
+  editMode = !editMode;
+  if (editMode && multiMode) document.getElementById("btn-multi").click();
+  ev.currentTarget.setAttribute("aria-pressed", editMode);
+  cv.classList.remove("on-box", "grip");
+  setHint();
+  draw();
+};
 document.getElementById("btn-multi").onclick = ev => {
   multiMode = !multiMode;
+  if (multiMode && editMode) document.getElementById("btn-edit").click();
   ev.currentTarget.setAttribute("aria-pressed", multiMode);
   cv.classList.toggle("marquee", multiMode);
-  document.getElementById("hint").innerHTML = multiMode
+  setHint();
+};
+function setHint() {
+  document.getElementById("hint").innerHTML = editMode
+    ? `<span>Drag a block to move it</span><span>Drag its right-edge grip to reshape it</span>
+       <span>Wider means more codes per row</span><span>Drag the background to pan</span>`
+    : multiMode
     ? `<span>Drag across the canvas to enclose points</span><span>Every rectangle adds</span>
        <span>Drag a marked point to move the block</span><span>Shift-drag to pan</span>`
     : `<span>Drag a point to move it</span><span>Drag the background to pan</span>
        <span>Wheel to zoom</span><span>Click to read the code</span>`;
-};
+}
 document.getElementById("btn-all").onclick = () => {
   layoutMode = "clusters";
   // Seeds are the codes nothing consumes, which covers every tree top whether
