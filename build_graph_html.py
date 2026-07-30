@@ -1,6 +1,11 @@
 """Genera el visor interactivo del arbol de producto de Ashford.
 
 Uso:  python3 build_graph_html.py
+      python3 build_graph_html.py --owners fichero.json --out copia.html --key clave
+
+Con --owners se incrusta un reparto ya hecho, que la pagina carga la primera vez
+y despues cede ante lo que el usuario edite. Conviene darle su propia --key para
+que trabajar sobre la copia no pise el reparto de la pagina en blanco.
 
 Lee 'Ashford split 2.xlsx' (pestanas BOM y RATE ya limpias), calcula el grafo y
 lo incrusta en graph_template.html para producir un unico HTML autocontenido:
@@ -16,6 +21,7 @@ maquinas de RATE; aqui solo se calcula para elegir el codigo de arranque y para
 el resumen que se imprime.
 """
 
+import argparse
 import json
 from collections import Counter, defaultdict
 
@@ -28,6 +34,12 @@ SALIDA = "ashford_bom_graph.html"
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--owners", help="json de codigo -> indice de owner a incrustar")
+    ap.add_argument("--out", default=SALIDA)
+    ap.add_argument("--key", help="clave de localStorage propia para esta copia")
+    args = ap.parse_args()
+
     bom = pd.read_excel(XLSX, sheet_name="BOM", dtype=str)
     rate = pd.read_excel(XLSX, sheet_name="RATE", dtype=str)
 
@@ -113,16 +125,21 @@ def main():
         "mach_idx": mach_idx,
         "start": inicio,
     }
+    if args.owners:
+        datos["preset_owners"] = json.load(open(args.owners))
+        print(f"  reparto incrustado desde {args.owners}: {len(datos['preset_owners'])} codigos")
+    if args.key:
+        datos["store_key"] = args.key
 
     plantilla = open(TEMPLATE, encoding="utf-8").read()
     marcador = "/*__DATA__*/"
     assert marcador in plantilla, f"falta el marcador {marcador} en {TEMPLATE}"
     html = plantilla.replace(marcador, json.dumps(datos, separators=(",", ":")))
-    open(SALIDA, "w", encoding="utf-8").write(html)
+    open(args.out, "w", encoding="utf-8").write(html)
 
     reparto = Counter(clase(i) for i in range(len(codes)))
 
-    print(f"{SALIDA} — {len(html) / 1024:.0f} KB")
+    print(f"{args.out} — {len(html) / 1024:.0f} KB")
     print(f"  {len(codes)} nodos | {len(ch_idx)} aristas | {len(maquinas)} maquinas")
     print("  " + " | ".join(f"{reparto[c]} {c}" for c in ("FG", "BLK", "WIP", "CMP")))
     print(f"  {len(maquinas) - len(sin_nombre)}/{len(maquinas)} maquinas con nombre real")

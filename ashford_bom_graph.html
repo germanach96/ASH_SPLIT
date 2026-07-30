@@ -512,19 +512,24 @@ const GRIP = 7;   // half-width of the resize grip, in screen pixels
 const OWNERS = ["Sr planner 1", "Sr planner 2", "Jr planner 1", "Jr planner 2", "Intern"];
 const NO_OWNER = -1;
 const OWNER = new Int8Array(N).fill(NO_OWNER);
-const STORE_KEY = "ashford-ownership-v1";
+// A copy of the page can ship with a split already made, and keeps its own
+// storage key so working on it never overwrites the blank one.
+const STORE_KEY = DATA.store_key || "ashford-ownership-v1";
 
 function loadOwners() {
+  let saved = DATA.preset_owners || null;   // the shipped proposal, if any
   try {
     const raw = localStorage.getItem(STORE_KEY);
-    if (!raw) return;
-    const saved = JSON.parse(raw);
+    if (raw) saved = JSON.parse(raw);       // own edits win over the proposal
+  } catch { /* storage can be blocked; fall back to the shipped proposal */ }
+  if (!saved) return;
+  {
     const at = new Map(CODES.map((c, i) => [c, i]));
     for (const code in saved) {
       const i = at.get(code), o = saved[code];
       if (i !== undefined && o >= 0 && o < OWNERS.length) OWNER[i] = o;
     }
-  } catch { /* storage can be blocked; ownership just starts empty */ }
+  }
 }
 function saveOwners() {
   try {
