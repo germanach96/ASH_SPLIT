@@ -30,6 +30,14 @@
     --focus: #0f766e;
     --pick: #b5179e;
     --pick-soft: #f7e0f2;
+
+    /* Relleno por owner. Los aros ya usan óxido, verde azulado, azul y gris,
+       así que estos cinco se apartan de esas familias. */
+    --own0: #7c3aed;   /* Sr planner 1 */
+    --own1: #db2777;   /* Sr planner 2 */
+    --own2: #65a30d;   /* Jr planner 1 */
+    --own3: #d97706;   /* Jr planner 2 */
+    --own4: #334155;   /* Intern */
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -39,6 +47,7 @@
       --fg-soft: #33200f; --blk-soft: #0e2d2b; --wip-soft: #12253a; --cmp-soft: #1b262a;
       --edge: #2c4046; --edge-hot: #3fb5a6; --cluster: #101b1f; --cluster-line: #1e2f35; --focus: #3fb5a6;
       --pick: #f07ad0; --pick-soft: #3a1030;
+      --own0: #a78bfa; --own1: #f472b6; --own2: #a3e635; --own3: #fbbf24; --own4: #cbd5e1;
     }
   }
   :root[data-theme="dark"] {
@@ -48,6 +57,7 @@
     --fg-soft: #33200f; --blk-soft: #0e2d2b; --wip-soft: #12253a; --cmp-soft: #1b262a;
     --edge: #2c4046; --edge-hot: #3fb5a6; --cluster: #101b1f; --cluster-line: #1e2f35; --focus: #3fb5a6;
     --pick: #f07ad0; --pick-soft: #3a1030;
+    --own0: #a78bfa; --own1: #f472b6; --own2: #a3e635; --own3: #fbbf24; --own4: #cbd5e1;
   }
   :root[data-theme="light"] {
     --ground: #eef2f3; --panel: #ffffff; --panel-2: #f6f9fa; --canvas-bg: #f8fafb;
@@ -56,6 +66,7 @@
     --fg-soft: #f5e2d8; --blk-soft: #d8ebe8; --wip-soft: #dbe7f4; --cmp-soft: #e3e9ec;
     --edge: #b3c2c7; --edge-hot: #0f766e; --cluster: #eaf0f2; --cluster-line: #d9e3e6; --focus: #0f766e;
     --pick: #b5179e; --pick-soft: #f7e0f2;
+    --own0: #7c3aed; --own1: #db2777; --own2: #65a30d; --own3: #d97706; --own4: #334155;
   }
 
   * { box-sizing: border-box; }
@@ -75,11 +86,14 @@
   #brand span { font-family: var(--mono); font-size: 11px; color: var(--ink-3); letter-spacing: .08em; }
   .legend { display: flex; gap: 15px; flex-wrap: wrap; }
   .lg { display: flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 11px; letter-spacing: .05em; color: var(--ink-2); white-space: nowrap; }
-  .dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
-  .dot.fg { background: var(--fg); }
-  .dot.blk { background: var(--blk); }
-  .dot.wip { background: var(--wip); }
-  .dot.cmp { background: var(--panel); border: 2px solid var(--cmp); }
+  /* Class shows as a ring, matching how the graph draws it now. */
+  .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; background: none; border: 3px solid transparent; }
+  .dot.fg { border-color: var(--fg); }
+  .dot.blk { border-color: var(--blk); }
+  .dot.wip { border-color: var(--wip); }
+  .dot.cmp { border-color: var(--cmp); }
+  .swatch { width: 12px; height: 12px; border-radius: 50%; flex: none; border: 1px solid var(--rule); }
+  .swatch.none { background: var(--panel); }
   .tools { display: flex; gap: 6px; flex-wrap: wrap; }
   .split { display: flex; border: 1px solid var(--rule); border-radius: 2px; overflow: hidden; }
   .split button { border: 0; border-radius: 0; border-left: 1px solid var(--rule); }
@@ -158,6 +172,23 @@
   #selchips .chip { border-color: var(--pick); color: var(--pick); background: var(--pick-soft); }
   .selacts { display: flex; gap: 5px; }
   .selacts button { flex: 1; padding: 6px 4px; }
+
+  #assign {
+    width: 100%; font-family: var(--mono); font-size: 11px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--ink); background: var(--panel-2);
+    border: 1px solid var(--rule); border-radius: 2px; padding: 7px 8px;
+  }
+  #assign:disabled { opacity: .45; }
+  #owners { display: flex; flex-direction: column; gap: 2px; }
+  .own {
+    display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+    border: 0; border-left: 2px solid transparent; border-radius: 0; background: none;
+    padding: 5px 6px; font-family: var(--mono); font-size: 11.5px;
+    letter-spacing: 0; text-transform: none; color: var(--ink); cursor: pointer;
+  }
+  .own:hover { background: var(--panel-2); border-left-color: var(--rule); }
+  .own .n { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--ink-3); font-size: 10.5px; }
+  .own .bar { height: 3px; border-radius: 2px; }
 
   #modal {
     position: fixed; inset: 0; z-index: 20; display: none; place-items: center;
@@ -299,9 +330,21 @@
     <div class="sec" id="selbox">
       <h2 id="selhead">Selection</h2>
       <div id="selchips"></div>
+      <select id="assign" disabled aria-label="Assign the selection to an owner">
+        <option value="" selected>Assign to…</option>
+      </select>
+      <p class="note" id="assignnote"></p>
       <div class="selacts">
         <button id="btn-export" disabled>Export</button>
         <button id="btn-clear" disabled>Clear</button>
+      </div>
+    </div>
+    <div class="sec">
+      <h2>Ownership</h2>
+      <div id="owners"></div>
+      <p class="note">Click an owner to select every code they hold, ready to hand over.</p>
+      <div class="selacts" style="margin-top:9px">
+        <button id="btn-reset">Clear all owners</button>
       </div>
     </div>
     <div class="sec"><h2>Detail</h2></div>
@@ -448,6 +491,36 @@ let selected = -1, hovered = -1;
 // selection that accumulates.
 const MARKED = new Uint8Array(N);
 let nMarked = 0, multiMode = false, band = null;
+
+/* Ownership. The class shows as the ring around a point and the owner as its
+ * fill, so a code with nobody on it stays a hollow ring. Assignments are keyed
+ * on the code itself rather than its index, so they survive the graph being
+ * rebuilt from a newer extract, and are held in the browser so a reorganisation
+ * spanning several sittings is not lost on a reload. */
+const OWNERS = ["Sr planner 1", "Sr planner 2", "Jr planner 1", "Jr planner 2", "Intern"];
+const NO_OWNER = -1;
+const OWNER = new Int8Array(N).fill(NO_OWNER);
+const STORE_KEY = "ashford-ownership-v1";
+
+function loadOwners() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    const at = new Map(CODES.map((c, i) => [c, i]));
+    for (const code in saved) {
+      const i = at.get(code), o = saved[code];
+      if (i !== undefined && o >= 0 && o < OWNERS.length) OWNER[i] = o;
+    }
+  } catch { /* storage can be blocked; ownership just starts empty */ }
+}
+function saveOwners() {
+  try {
+    const out = {};
+    for (let i = 0; i < N; i++) if (OWNER[i] !== NO_OWNER) out[CODES[i]] = OWNER[i];
+    localStorage.setItem(STORE_KEY, JSON.stringify(out));
+  } catch { /* nothing to do: the page still works, it just will not remember */ }
+}
 
 /** Transitive closure upwards (consumers) and/or downwards (components). */
 function collect(seeds, dir) {
@@ -733,7 +806,8 @@ function readPalette() {
   pal = {
     fg: g("--fg"), blk: g("--blk"), wip: g("--wip"), cmp: g("--cmp"), bg: g("--canvas-bg"),
     edge: g("--edge"), hot: g("--edge-hot"), ink: g("--ink"), ink2: g("--ink-2"), ink3: g("--ink-3"),
-    cluster: g("--cluster"), clusterLine: g("--cluster-line"), mono: g("--mono"), pick: g("--pick")
+    cluster: g("--cluster"), clusterLine: g("--cluster-line"), mono: g("--mono"), pick: g("--pick"),
+    own: OWNERS.map((_, i) => g("--own" + i))
   };
 }
 
@@ -882,44 +956,28 @@ function draw() {
     }
   }
 
-  // Points.
+  // Points: an outer disc in the class colour with an inner disc in the owner's
+  // colour on top. Two filled discs rather than a stroked ring, because a stroke
+  // wide enough to read at this size leaves no room for the fill inside it.
+  // An unowned code gets the background as its fill, so it reads as hollow.
+  // Being selected shows as a halo underneath rather than a fill on top, so a
+  // marked point still shows both its class and its owner while you work.
   const cols = [pal.fg, pal.blk, pal.wip, pal.cmp];
   ctx.lineWidth = 2 / k;
   for (const n of view.nodes) {
     const dim = near && !near.has(n);
     ctx.globalAlpha = dim ? 0.26 : 1;
-    ctx.beginPath();
-    ctx.arc(PX[n], PY[n], n === selected ? R * 1.5 : R, 0, 6.2832);
-    // Purchased codes are drawn hollow: nothing hangs below them.
-    if (KIND[n] === CMP) { ctx.fillStyle = pal.bg; ctx.fill(); ctx.strokeStyle = cols[CMP]; ctx.stroke(); }
-    else { ctx.fillStyle = cols[KIND[n]]; ctx.fill(); }
-    if (n === selected || n === hovered) { ctx.strokeStyle = pal.ink; ctx.stroke(); }
-  }
-
-  // Marked points, over the rest so nothing covers them. Dense views fill the
-  // point instead of ringing it: a ring keeps a fixed thickness in screen pixels
-  // while its radius is in drawing units, so zooming out closes it over itself
-  // and the marks merge into blobs. Filled, a point stays a point however tight
-  // the neighbours are.
-  if (nMarked) {
-    ctx.globalAlpha = 1;
-    if (view.big) {
-      ctx.fillStyle = pal.pick;
-      ctx.beginPath();
-      for (const n of view.nodes) if (MARKED[n]) {
-        ctx.moveTo(PX[n] + R, PY[n]);
-        ctx.arc(PX[n], PY[n], R, 0, 6.2832);
-      }
-      ctx.fill();
-    } else {
-      ctx.strokeStyle = pal.pick; ctx.lineWidth = 2.4 / k;
-      ctx.beginPath();
-      for (const n of view.nodes) if (MARKED[n]) {
-        ctx.moveTo(PX[n] + R * 2, PY[n]);
-        ctx.arc(PX[n], PY[n], R * 2, 0, 6.2832);
-      }
-      ctx.stroke();
+    const r = n === selected ? R * 1.5 : R;
+    if (MARKED[n]) {
+      ctx.beginPath(); ctx.arc(PX[n], PY[n], r * 1.55, 0, 6.2832);
+      ctx.fillStyle = pal.pick; ctx.fill();
     }
+    ctx.beginPath(); ctx.arc(PX[n], PY[n], r, 0, 6.2832);
+    ctx.fillStyle = cols[KIND[n]]; ctx.fill();
+    if (n === selected || n === hovered) { ctx.strokeStyle = pal.ink; ctx.stroke(); }
+    ctx.beginPath(); ctx.arc(PX[n], PY[n], r * 0.56, 0, 6.2832);
+    ctx.fillStyle = OWNER[n] === NO_OWNER ? pal.bg : pal.own[OWNER[n]];
+    ctx.fill();
   }
 
   // Cluster labels and graph codes are sized in drawing units, not screen pixels,
@@ -1079,10 +1137,66 @@ function clearMarks() {
   renderSelection(); draw();
 }
 
+/* --- ownership --- */
+
+/** The codes an assignment applies to: the marked set, or the code showing in
+ *  the detail panel when nothing is marked, so one-at-a-time still works. */
+function assignTargets() {
+  if (nMarked) return marked();
+  return selected >= 0 ? [selected] : [];
+}
+
+function assignTo(owner) {
+  const targets = assignTargets();
+  if (!targets.length) return;
+  for (const n of targets) OWNER[n] = owner;
+  saveOwners();
+  renderSelection();
+  renderOwners();
+  if (selected >= 0) select(selected);
+  draw();
+}
+
+function renderOwners() {
+  const count = new Int32Array(OWNERS.length);
+  let none = 0;
+  for (let i = 0; i < N; i++) OWNER[i] === NO_OWNER ? none++ : count[OWNER[i]]++;
+  const most = Math.max(1, ...count);
+
+  const box = document.getElementById("owners");
+  box.innerHTML = OWNERS.map((name, i) => `
+    <button class="own" data-own="${i}" title="Select every code ${name} holds">
+      <i class="swatch" style="background:var(--own${i})"></i>${name}
+      <span class="n">${count[i]}</span>
+    </button>
+    <div class="bar" style="width:${(count[i] / most) * 100}%;background:var(--own${i});opacity:${count[i] ? .75 : 0}"></div>`).join("") + `
+    <button class="own" data-own="none" title="Select every code with nobody on it">
+      <i class="swatch none"></i>Unassigned<span class="n">${none}</span>
+    </button>`;
+
+  box.querySelectorAll("[data-own]").forEach(b => b.onclick = () => {
+    const want = b.dataset.own === "none" ? NO_OWNER : +b.dataset.own;
+    let added = 0;
+    for (let i = 0; i < N; i++) if (OWNER[i] === want && !MARKED[i]) { MARKED[i] = 1; nMarked++; added++; }
+    if (added) { renderSelection(); draw(); }
+  });
+
+  const reset = document.getElementById("btn-reset");
+  reset.disabled = none === N;
+}
+
 function renderSelection() {
   const chips = document.getElementById("selchips");
   document.getElementById("btn-export").disabled = !nMarked;
   document.getElementById("btn-clear").disabled = !nMarked;
+
+  const targets = assignTargets();
+  const combo = document.getElementById("assign");
+  combo.disabled = !targets.length;
+  document.getElementById("assignnote").textContent = !targets.length
+    ? "Select codes first, with the box or by clicking one."
+    : nMarked ? `Applies to the ${nMarked} selected code${nMarked === 1 ? "" : "s"}.`
+      : `Applies to ${CODES[selected]}.`;
   const badge = document.getElementById("picked");
   badge.classList.toggle("on", nMarked > 0);
   badge.textContent = nMarked ? `${nMarked} selected` : "";
@@ -1118,8 +1232,9 @@ function select(n) {
   const box = document.getElementById("detail");
   if (n < 0) {
     box.innerHTML = `<div class="sec"><p class="empty">Pick a code or a machine on the left, or click a point in the graph.</p>
-      <p class="note">Hollow points are codes Ashford buys. They have no machine in the RATE sheet,
-      which is why nothing hangs below them.</p></div>`;
+      <p class="note">A point's ring is its class and its fill is its owner, so a hollow one is
+      a code nobody holds yet.</p></div>`;
+    renderSelection();   // the assign box works off the selected code too
     draw(); return;
   }
   const ms = machinesOf(n);
@@ -1138,6 +1253,12 @@ function select(n) {
         <dt>End products above</dt><dd>${endProductsAbove(n)}</dd>
         ${INVIEW[n] ? `<dt>Level in view</dt><dd>${LVL[n]}</dd>` : ""}
       </dl>
+    </div>
+    <div class="sec">
+      <h2>Owner</h2>
+      <span class="badge ${OWNER[n] === NO_OWNER ? "cmp" : ""}" style="${OWNER[n] === NO_OWNER ? "" : `background:var(--own${OWNER[n]});color:#fff`}">
+        ${OWNER[n] === NO_OWNER ? "Nobody yet" : OWNERS[OWNER[n]]}
+      </span>
     </div>
     <div class="sec">
       <h2>Made on</h2>
@@ -1159,6 +1280,7 @@ function select(n) {
     setScope("code", [n], d,
       d === "both" ? `Context of ${CODES[n]}` : d === "down" ? `Explosion of ${CODES[n]}` : `Where ${CODES[n]} is used`);
   });
+  renderSelection();   // with nothing marked, the assign box targets this code
   draw();
 }
 
@@ -1288,12 +1410,13 @@ function marked() {
 }
 
 function csvCodigos() {
-  const rows = [row(["Code", "Class", "ClassName", "DirectComponents", "UsedBy",
+  const rows = [row(["Code", "Class", "ClassName", "Owner", "DirectComponents", "UsedBy",
     "FullExplosion", "EndProductsAbove", "Machines", "Operations"])];
   for (const n of marked()) {
     const ms = machinesOf(n);
     rows.push(row([
-      CODES[n], KIND_CODE[KIND[n]], KIND_NAME[KIND[n]], nCh(n), nPa(n),
+      CODES[n], KIND_CODE[KIND[n]], KIND_NAME[KIND[n]],
+      OWNER[n] === NO_OWNER ? "" : OWNERS[OWNER[n]], nCh(n), nPa(n),
       reach(n, CH_OFF, CH_IDX), endProductsAbove(n),
       ms.map(m => MACHINES[m]).join(" "),
       [...new Set(ms.map(m => MOPS[m]))].join(" ")
@@ -1304,11 +1427,12 @@ function csvCodigos() {
 
 /** Parent-component relations with both ends inside the selection. */
 function csvRelaciones() {
-  const rows = [row(["Parent", "Component", "ParentClass", "ComponentClass"])];
+  const rows = [row(["Parent", "Component", "ParentClass", "ComponentClass", "ParentOwner", "ComponentOwner"])];
+  const who = n => OWNER[n] === NO_OWNER ? "" : OWNERS[OWNER[n]];
   for (const p of marked())
     for (let e = CH_OFF[p]; e < CH_OFF[p + 1]; e++) {
       const c = CH_IDX[e];
-      if (MARKED[c]) rows.push(row([CODES[p], CODES[c], KIND_CODE[KIND[p]], KIND_CODE[KIND[c]]]));
+      if (MARKED[c]) rows.push(row([CODES[p], CODES[c], KIND_CODE[KIND[p]], KIND_CODE[KIND[c]], who(p), who(c)]));
     }
   return rows.join("\n");
 }
@@ -1329,6 +1453,35 @@ function openExport() {
   csvBox.focus(); csvBox.select();
 }
 function closeExport() { modal.classList.remove("on"); modal.hidden = true; }
+
+{
+  const combo = document.getElementById("assign");
+  OWNERS.forEach((name, i) => combo.add(new Option(name, String(i))));
+  combo.add(new Option("Nobody — clear owner", "none"));
+  combo.onchange = () => {
+    if (combo.value === "") return;
+    assignTo(combo.value === "none" ? NO_OWNER : +combo.value);
+    combo.value = "";          // back to the prompt, ready for the next batch
+  };
+}
+
+// Two-click confirm rather than confirm(), which some embeddings suppress.
+{
+  const reset = document.getElementById("btn-reset");
+  let armed = false, timer = 0;
+  reset.onclick = () => {
+    if (!armed) {
+      armed = true; reset.textContent = "Confirm — wipe all";
+      timer = setTimeout(() => { armed = false; reset.textContent = "Clear all owners"; }, 4000);
+      return;
+    }
+    clearTimeout(timer); armed = false; reset.textContent = "Clear all owners";
+    OWNER.fill(NO_OWNER); saveOwners();
+    renderOwners(); renderSelection();
+    if (selected >= 0) select(selected);
+    draw();
+  };
+}
 
 document.getElementById("btn-export").onclick = openExport;
 document.getElementById("btn-clear").onclick = clearMarks;
@@ -1402,8 +1555,10 @@ const onTheme = () => { readPalette(); draw(); };
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", onTheme);
 new MutationObserver(onTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
+loadOwners();
 renderCodes();
 renderMachines();
+renderOwners();
 renderSelection();
 select(-1);
 setScope("code", [DATA.start], "both", `Context of ${CODES[DATA.start]}`);
