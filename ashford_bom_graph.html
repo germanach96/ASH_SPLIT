@@ -158,7 +158,7 @@
   canvas.grabbing { cursor: grabbing; }
   canvas.marquee { cursor: crosshair; }
   canvas.on-box { cursor: move; }
-  canvas.grip { cursor: ew-resize; }
+  canvas.grip { cursor: nwse-resize; }
   canvas.on-node { cursor: pointer; }   /* after .marquee, so a point beats the box cursor */
   button[aria-pressed="true"].pick { background: var(--pick-soft); border-color: var(--pick); color: var(--ink); }
   /* The slot is always reserved. If the counter appeared on the first mark the
@@ -275,7 +275,7 @@
       </div>
       <button id="btn-links" aria-pressed="false" title="Sum the links between two clusters into a single line">Bundle links</button>
       <button id="btn-multi" class="pick" aria-pressed="false" title="Drag across the canvas to enclose points in a rectangle">Box select</button>
-      <button id="btn-edit" class="pick" aria-pressed="false" title="Drag a block to move it, or its right-edge grip to reshape it">Edit blocks</button>
+      <button id="btn-edit" class="pick" aria-pressed="false" title="Drag a block to move its frame, or the bottom-right corner to resize it. The codes stay put.">Edit blocks</button>
       <span id="picked"></span>
       <button id="btn-fit">Fit</button>
       <button id="btn-relayout">Re-layout</button>
@@ -657,18 +657,16 @@ function fitBox(c) {
   });
 }
 
-/** Resizing reflows the grid: the width sets how many codes fit on a row, and
- *  the height follows from the rows that leaves. */
-function resizeBox(c, w) {
-  c.w = Math.max(c.minW, w);
-  c.cols = Math.max(1, Math.min(c.list.length, Math.floor((c.w - c.pad * 2) / c.gap)));
-  fitBox(c);
-}
+/* Once a block is edited it becomes a free frame: moving or resizing it leaves
+ * the codes exactly where they are. The initial layout still places them, but
+ * from then on the rectangle and its contents move independently, so a frame can
+ * be dragged over whichever codes you want it to enclose. */
+function moveBox(c, dx, dy) { c.x += dx; c.y += dy; }
 
-/** Moves a block and everything inside it. */
-function moveBox(c, dx, dy) {
-  c.x += dx; c.y += dy;
-  for (const n of c.list) { PX[n] += dx; PY[n] += dy; }
+/** Free resize on both axes, floored so the caption always has room. */
+function resizeBox(c, w, h) {
+  c.w = Math.max(c.minW, w);
+  c.h = Math.max(c.head + c.gap, h);
 }
 function layoutClusters(nodes, edges) {
   topoLevels(nodes, edges);
@@ -945,7 +943,11 @@ function draw() {
     if (editMode) {
       const g = GRIP / k;
       ctx.fillStyle = pal.pick;
-      ctx.fillRect(c.x + c.w - g / 2, c.y + c.h / 2 - g * 1.6, g, g * 3.2);
+      ctx.beginPath();
+      ctx.moveTo(c.x + c.w, c.y + c.h - g * 2);
+      ctx.lineTo(c.x + c.w, c.y + c.h);
+      ctx.lineTo(c.x + c.w - g * 2, c.y + c.h);
+      ctx.closePath(); ctx.fill();
     }
   }
 
@@ -1088,19 +1090,30 @@ function clusterAt(wx, wy) {
   }
   return null;
 }
+/** The resize handle sits on the bottom-right corner and drags both axes.
+ *  Once frames are dragged around they overlap, and several corners can fall
+ *  inside the grab radius at once, so the nearest one wins rather than whichever
+ *  happens to be drawn last. */
 function gripAt(wx, wy) {
-  const t = (GRIP + 4) / k;
-  for (let i = view.clusters.length - 1; i >= 0; i--) {
-    const c = view.clusters[i];
-    if (Math.abs(wx - (c.x + c.w)) <= t && Math.abs(wy - (c.y + c.h / 2)) <= t * 3) return c;
+  const t = (GRIP + 5) / k;
+  let best = null, bd = Infinity;
+  for (const c of view.clusters) {
+    const dx = wx - (c.x + c.w), dy = wy - (c.y + c.h);
+    if (Math.abs(dx) > t || Math.abs(dy) > t) continue;
+    const d = dx * dx + dy * dy;
+    if (d < bd) { bd = d; best = c; }
   }
-  return null;
+  return best;
 }
-/** After a block moves or reflows, hit testing and the bundled links both work
- *  off stale positions until they are rebuilt. */
-function afterBoxEdit() {
-  buildGrid();
-  buildLinkGroups();
+
+/** Puts a frame on top, so it draws over its neighbours and stays the one under
+ *  the cursor for the next drag. */
+function raiseBox(c) {
+  const i = view.clusters.indexOf(c);
+  if (i >= 0 && i < view.clusters.length - 1) {
+    view.clusters.splice(i, 1);
+    view.clusters.push(c);
+  }
 }
 
 let drag = null;
@@ -1131,8 +1144,10 @@ cv.addEventListener("pointerdown", ev => {
   else mode = n >= 0 ? "node" : "pan";
 
   if (mode === "grip" || mode === "box") {
+    raiseBox(box);
     drag = { mode, node: n, box, last: world(ev), moved: false };
     cv.classList.add("grabbing");
+    draw();
     return;
   }
 
@@ -1162,7 +1177,7 @@ cv.addEventListener("pointermove", ev => {
     }
     else if (drag.mode === "grip") {
       const w = world(ev);
-      resizeBox(drag.box, w.x - drag.box.x);
+      resizeBox(drag.box, w.x - drag.box.x, w.y - drag.box.y);
     }
     else if (drag.mode === "block") {
       const w = world(ev), dx = w.x - drag.last.x, dy = w.y - drag.last.y;
@@ -1195,7 +1210,6 @@ function endDrag() {
     if (multiMode && drag.node >= 0) setMark(drag.node, !MARKED[drag.node]);
     select(drag.node);
   } else if (drag.mode === "band") markInBand();
-  else if (drag.mode === "box" || drag.mode === "grip") afterBoxEdit();
   else if (drag.mode === "node" || drag.mode === "block") buildGrid();
   band = null;
   drag = null;
@@ -1643,8 +1657,8 @@ document.getElementById("btn-multi").onclick = ev => {
 };
 function setHint() {
   document.getElementById("hint").innerHTML = editMode
-    ? `<span>Drag a block to move it</span><span>Drag its right-edge grip to reshape it</span>
-       <span>Wider means more codes per row</span><span>Drag the background to pan</span>`
+    ? `<span>Drag a block to move the frame</span><span>Drag its bottom-right corner to resize</span>
+       <span>The codes inside stay where they are</span><span>Drag the background to pan</span>`
     : multiMode
     ? `<span>Drag across the canvas to enclose points</span><span>Every rectangle adds</span>
        <span>Drag a marked point to move the block</span><span>Shift-drag to pan</span>`
