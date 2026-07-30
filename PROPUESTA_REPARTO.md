@@ -3,120 +3,118 @@
 Generada por `propose_split.py`, incrustada en `ashford_bom_graph_proposal.html`.
 
 ```
-python3 propose_split.py 25
+python3 propose_split.py
 python3 build_graph_html.py --owners ownership_proposal.json \
         --out ashford_bom_graph_proposal.html --key ashford-ownership-proposal-v1
 ```
 
-El `25` es el peso que se le da a no partir una máquina frente a no partir una
-cadena. Cambiarlo mueve el reparto por la frontera de abajo.
+El reparto no sale de optimizar un grafo, sale de cómo está organizada la
+planta. Cada planner es dueño de un grupo de líneas de packing y todo lo demás
+cuelga de ahí.
 
-## Lo primero: los dos objetivos son incompatibles
+## Las reglas
 
-No es una limitación del algoritmo, es la forma de los datos.
+1. Las líneas de packing se reparten por familia de producto.
+2. Cada código de packing va con el dueño de su línea.
+3. Cada bulk va con el planner que más lo consume en sus líneas de packing,
+   subiendo por toda la cadena y no solo al padre directo.
+4. Un comprado va con su dueño solo si es uno solo. Si lo consumen varios se
+   queda **sin asignar**, porque en la práctica no se gestiona por planner.
 
-Un producto final se envasa en una **P05P** y su bulk se fabrica en una **P05M**.
-Los dos conjuntos de máquinas son disjuntos, así que **toda cadena cruza de
-máquina por construcción**. En números:
+## Los bloques de fluidity
 
-- Agrupando solo por máquina compartida salen **21 grupos**, el mayor con 941
-  códigos. Cero fluidity compartida es alcanzable.
-- Agrupando por máquina **y** cadena sale **un único grupo con los 3.925
-  producibles**. No hay ningún corte limpio.
+Antes de repartir hay que saber qué no se puede partir. Mirando qué códigos
+pueden correr en dos líneas a la vez, las 28 líneas de packing se separan en
+bloques que **no comparten ni un solo código** entre sí:
 
-De modo que cero máquinas compartidas y cadenas enteras no pueden darse a la
-vez. Hay que elegir un punto intermedio.
+| Códigos | Familia | Líneas |
+|---:|---|---|
+| 941 | liquids | 501, 502, 506, 507, 510, 516 Kugler |
+| 477 | liquids | 513 Kalix Tube Filler, 518 IWK, 521 Kalix |
+| 312 | mouldings | 402 Weckerle, 416 MM360 |
+| 221 | liquids | 509 Bottle Foundation, 519 PKB |
+| 171 | liquids | 701 Liquids Prestige |
+| 79 | liquids | 520 Romaco |
+| 70 | powders | 321, 322 Book Press |
+| 69 | powders | 612 Manual Line |
+| 58 | mouldings | 417 MM360 |
+| 57 | mouldings | 410 Weckerle Tester |
+| 49 | powders | 324 Book Press |
+| 44 | powders | 325, 326 Vetraco, 329 Camwell |
+| 40 | powders | 602, 603 Robot Line |
+| 27 | powders | 306 Kemwall, 327 Robot Vetraco |
 
-## La frontera
-
-| Peso máquina | Máquinas compartidas | Cadenas con un solo dueño | Enlaces de cadena internos |
-|---:|---:|---:|---:|
-| 0 | 52 / 63 | 98 % | 99 % |
-| 5 | 40 / 63 | 96 % | 98 % |
-| **25** | **19 / 63** | **82 %** | **90 %** |
-| 60 | 15 / 63 | 71 % | 86 % |
-| 150 | 12 / 63 | 58 % | 77 % |
-
-Elegido **25**, que es el codo: bajar de 52 a 19 máquinas compartidas cuesta 16
-puntos de integridad de cadena, y a partir de ahí cada máquina que se recupera
-cuesta mucho más. De 25 a 150 se ganan 7 máquinas y se pierden 24 puntos.
+Los enlaces fuertes dentro del bloque Kugler son 501–510 (124 códigos),
+502–506 (101) y 501–502 (63). La 507 y la 516 cuelgan de él con muy poca
+fluidity, 2 y 6 códigos, pero son de la misma familia y se dejan dentro.
 
 ## El reparto
 
-| | Total | FG | BLK | WIP | CMP | Máquinas |
-|---|---:|---:|---:|---:|---:|---:|
-| Sr planner 1 | 1.495 | 487 | 354 | 30 | 624 | 28 |
-| Sr planner 2 | 1.799 | 546 | 323 | 55 | 875 | 23 |
-| Jr planner 1 | 1.385 | 498 | 268 | 81 | 538 | 24 |
-| Jr planner 2 | 1.548 | 496 | 255 | 70 | 727 | 34 |
-| Intern | 949 | 352 | 110 | 0 | 487 | 23 |
+| | Líneas | Producibles | FG | BLK | WIP | CMP |
+|---|---|---:|---:|---:|---:|---:|
+| **Sr planner 1** | 521 Kalix, 518 IWK, 513 Kalix Tube Filler | 690 | 477 | 213 | 0 | 249 |
+| **Sr planner 2** | 501, 502, 506, 507, 510, 516 Kugler | 1.530 | 847 | 589 | 94 | 1.168 |
+| **Jr planner 1** | 602, 603, 612 · 306, 321, 322, 324, 325, 326, 327, 329 | 382 | 159 | 83 | 140 | 170 |
+| **Jr planner 2** | 402, 410, 416, 417 · 520 Romaco | 742 | 504 | 236 | 2 | 739 |
+| **Intern** | 509 Bottle Foundation, 519 PKB, 701 Prestige | 581 | 392 | 189 | 0 | 631 |
+| Sin asignar | | | | | | 294 |
 
-El intern lleva media carga de códigos producibles respecto a un planner, y
-ningún WIP: se queda con cadenas más cortas y autocontenidas. La cuota se aplica
-sobre los producibles; los comprados caen después con quien más los consume, y
-son el trabajo más ligero.
+**Las 28 líneas de packing tienen un solo dueño.** De las 63 máquinas, 49 son de
+un solo planner; las 14 compartidas son todas de making, ninguna de packing.
 
-Resultados:
+El 77 % de los productos finales tienen toda su cadena de producibles en un solo
+planner.
 
-- **82 %** de los productos finales tienen toda su cadena de producibles en un
-  solo planner: 2.079 de 2.532.
-- **90 %** de los enlaces de cadena quedan dentro del mismo planner.
-- **44 de 63 máquinas** son de un solo planner.
-- **18 %** de los comprados los consumen varios planners. Es inevitable: el
-  grafo no dirigido es una sola pieza, precisamente por las materias primas
-  compartidas.
+## Las tres decisiones que dejaste abiertas
 
-## Las 19 máquinas que quedan compartidas
+**La 520 Romaco va con mouldings.** Es una línea de kits: de sus 79 códigos, 59
+se alimentan de mouldings **y** de Kugler a la vez. Romperla por un lado cuesta
+70 cadenas y por el otro 68, así que en cadenas da igual. Se decide por carga
+—mouldings es la mitad que Kugler— y por dejar la cadena 416 → 520 en una sola
+mano, que es como la planteaste.
 
-No son un residuo del algoritmo, son los caballos de batalla de la planta:
+**La 507 se queda en Kugler.** Solo comparte 4 códigos con el bloque (2 con la
+501 y 2 con la 510), pero es de la familia y no hay ningún sitio mejor.
 
-| Máquina | Nombre | Planners | Códigos |
-|---|---|---:|---:|
-| P05P0521 | 521 Kalix | 5 | 477 |
-| P05P0501 | 501 Kugler | 5 | 356 |
-| P05P0502 | 502 Kugler | 5 | 333 |
-| P05M0565 | EKATO200ATEX | 5 | 307 |
-| P05M0573 | EKATO500ATEX | 5 | 291 |
-| P05M0568 | BECOMIX 2000L | 5 | 280 |
-| P05P0510 | 510 High Speed Kugler | 5 | 262 |
-| P05M0566 | EKATO320ATEX | 5 | 242 |
-| P05P0509 | 509 Bottle Foundation Line | 5 | 215 |
-| P05P0506 | 506 Kugler | 5 | 196 |
-| P05M0562 | EKATO200 | 5 | 187 |
-| P05M0575 | BECOMIX 25L | 5 | 121 |
-| P05M0557 | BECO1200 | 5 | 80 |
-| P05P0416 | 416 MM360 | 4 | 259 |
-| P05P0701 | 701 Liquids Prestige | 4 | 171 |
-| P05M0567 | BECO5 | 4 | 92 |
-| P05M0463 | BUHLER4 | 4 | 45 |
-| P05M0462 | BUHLER3 | 4 | 45 |
-| P05M0466 | K60 BEAD MILL | 3 | 33 |
+**Powders y mouldings van a Jr planners distintos.** Juntarlos en uno liberaba un
+planner para líquidos, pero líquidos no se puede partir en cuatro sin romper el
+bloque Kugler, así que no compensaba.
 
-Dárselas a un solo planner significaría darle un cuarto de la fábrica. La
-lectura práctica es que **el ownership exclusivo funciona para el equipo
-especializado, y estas diecinueve son infraestructura compartida**: tienen que
-programarse en común, con independencia de quién sea dueño de cada código.
+## Un cambio sobre tu esquema, y por qué
 
-## Cómo está montado el algoritmo
+Describiste foundations como un grupo: 521, 509, 519, 518 y 513. Dentro tiene
+**dos núcleos que no comparten ni un código**: 521–518–513 por un lado y
+509–519 por otro. Se separan por ahí, que no cuesta nada en fluidity, y las
+509–519 pasan al intern.
 
-1. **Siembra por cadena.** Cinco semillas alejadas entre sí en el grafo de
-   producibles, y cada una crece por sus vecinos hasta llenar su cuota.
-   Sembrar por grupos de máquina no funciona: las P05M y las P05P son disjuntas,
-   así que un owner se queda con todos los bulks y otro con todos los productos
-   finales — lo contrario de tener la cadena entera. Ese fue el primer intento y
-   daba 15 % de cadenas completas.
-2. **Búsqueda local a dos escalas.** Mover un código suelto arregla cadenas pero
-   nunca consolida una máquina, porque para eso tienen que moverse todos sus
-   códigos a la vez. El movimiento de máquina entera es el que recorre el
-   compromiso; sin él la búsqueda se quedaba clavada en 52 máquinas compartidas.
-3. **Comprados al final**, con quien más los consume.
+Dejando foundations entera, ese planner se llevaba 698 códigos de packing y el
+intern se quedaba con 171. Si prefieres el grupo completo, es mover dos líneas
+en `LINEAS` dentro de `propose_split.py`, o dos selecciones en el propio visor.
 
-## Qué hacer con esto
+## Lo que no cuadra: el desequilibrio
 
-Es un punto de partida, no un veredicto. Ábrelo, mira las zonas que no te
-convenzan y muévelas con el propio visor: `Select related` para coger una cadena
-entera, o el rectángulo para una zona, y `Assign to` para reasignarla. Los
-cambios se guardan solos.
+| | Producibles |
+|---|---:|
+| Sr planner 2 (Kugler) | 1.530 |
+| Jr planner 2 (mouldings) | 742 |
+| Sr planner 1 (foundations) | 690 |
+| Intern | 581 |
+| Jr planner 1 (powders) | 382 |
 
-La copia usa su **propia clave de almacenamiento**, así que trabajar sobre ella
-no toca lo que hagas en `ashford_bom_graph.html`, que sigue en blanco.
+**Cuatro a uno entre el mayor y el menor.** No es un fallo del reparto, es que el
+bloque Kugler es el 36 % de todo el packing de la planta y no se puede partir sin
+romper fluidity.
+
+Si quieres equilibrarlo, la costura más débil de Kugler está entre
+**501+510+516+507** (597 códigos) y **502+506** (428). Partir por ahí rompe la
+fluidity de **84 códigos** que pueden correr a los dos lados. Es la única palanca
+real que hay, y es tu decisión si esos 84 valen el equilibrio.
+
+## Cómo ajustarlo
+
+Ábrelo y muévelo con el propio visor: `Select related` para coger una cadena
+entera, el rectángulo para una zona, y `Assign to` para reasignarla. Los cambios
+se guardan solos.
+
+La copia usa su propia clave de almacenamiento, así que trabajar sobre ella no
+toca `ashford_bom_graph.html`, que sigue en blanco.
