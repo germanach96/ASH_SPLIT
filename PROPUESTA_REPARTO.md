@@ -3,10 +3,21 @@
 Generada por `propose_split.py`, incrustada en `ashford_bom_graph_proposal.html`.
 
 ```
-python3 propose_split.py
+python3 propose_split.py      # el reparto -> ownership_proposal.json
 python3 build_graph_html.py --owners ownership_proposal.json \
         --out ashford_bom_graph_proposal.html --key ashford-ownership-proposal-v1
+python3 build_report.py       # Ashford ownership proposal.pdf
+python3 build_compos.py       # Ashford components by planner.xlsx + venn_compos.svg
 ```
+
+Lo que se entrega:
+
+| Fichero | Qué es |
+|---|---|
+| `Ashford ownership proposal.pdf` | El informe, en inglés: el reparto, las reglas para códigos nuevos, el Venn de los comprados y lo que queda abierto |
+| `Ashford components by planner.xlsx` | Los 3.251 comprados, con su nivel y un 1/0 por planner |
+| `ashford_bom_graph_proposal.html` | El visor con el reparto ya puesto |
+| `venn_compos.svg` | El Venn suelto |
 
 El reparto no sale de optimizar un grafo, sale de cómo está organizada la
 planta. Cada planner es dueño de un grupo de líneas de packing y todo lo demás
