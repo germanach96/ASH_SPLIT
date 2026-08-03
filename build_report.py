@@ -152,6 +152,7 @@ th.n:last-child, td.n:last-child { padding-right: 0; }
 td.who { white-space: nowrap; }
 tr.tot td { font-weight: 600; border-top: .8pt solid #1a1d21; border-bottom: 0; }
 table.tight td, table.tight th { padding-top: 1mm; padding-bottom: 1mm; }
+table.keep { break-inside: avoid; }
 
 .chip {
   display: inline-block; padding: .5mm 1.8mm; border-radius: 1.5mm; color: #fff;
@@ -383,6 +384,51 @@ def construir(d):
       'The number standing alone inside an ellipse is what only that planner uses, which is what '
       'they own; every number in an overlap is shared, and shared is what gets left unassigned. '
       'A zero means nobody has that exact combination.</p>')
+
+    # Lo mismo que dice el dibujo, en dos tablas: cuanto lleva cada uno y con
+    # quien se solapa mas.
+    w("<h3>What each planner carries</h3>")
+    w('<table class="keep"><tr><th>Planner</th><th class="n">Consumed</th><th class="n">Only theirs</th>'
+      '<th class="n">Shared</th><th class="n">Share</th><th>Shares most with</th></tr>')
+    for o in sorted(range(5), key=lambda o: -totales[o]):
+        mios = [c for c in comprados if todos_consumen[c] == {o}]
+        comp_o = totales[o] - len(mios)
+        pares = Counter()
+        for c in comprados:
+            if o in todos_consumen[c]:
+                for x in todos_consumen[c]:
+                    if x != o:
+                        pares[x] += 1
+        top = ", ".join(f"{OWNERS[x]} ({n})" for x, n in pares.most_common(2))
+        w(f'<tr><td class="who">{chip(o)} {OWNERS[o]}</td><td class="n">{totales[o]:,}</td>'
+          f'<td class="n">{len(mios):,}</td><td class="n">{comp_o}</td>'
+          f'<td class="n">{comp_o / totales[o] * 100:.0f} %</td>'
+          f'<td class="dim">{top}</td></tr>')
+    w("</table>")
+    w('<p class="note">Only theirs is what nobody else consumes, and it is exactly what they own. '
+      'Shared is everything sitting in an overlap of the diagram, and none of it gets an owner.</p>')
+
+    w("<h3>Codes shared by each pair</h3>")
+    w('<table class="tight keep"><tr><th>Planner</th>'
+      + "".join(f'<th class="n">{CORTO[x]}</th>' for x in range(5))
+      + '<th class="n">Shared</th></tr>')
+    for o in range(5):
+        celdas = []
+        for x in range(5):
+            if x == o:
+                celdas.append('<td class="n dim">&mdash;</td>')
+                continue
+            n = sum(1 for c in comprados if {o, x} <= todos_consumen[c])
+            peso = ' style="font-weight:600"' if n >= 100 else ""
+            celdas.append(f'<td class="n"{peso}>{n}</td>')
+        comp_o = totales[o] - sum(1 for c in comprados if todos_consumen[c] == {o})
+        w(f'<tr><td class="who">{chip(o)} {OWNERS[o]}</td>{"".join(celdas)}'
+          f'<td class="n dim">{comp_o}</td></tr>')
+    w("</table>")
+    w('<p class="note">Each cell is how many purchased codes both planners consume, whoever else '
+      'consumes them too, so a row adds up to more than its own shared total. <b>The two Sr '
+      'planners are the heaviest pair by far, at 218 codes.</b> The lightest coupling in the plant '
+      'is Jr planner 1 with the Intern, at 19.</p>')
 
     w("<h3>How many planners share each one</h3>")
     w('<table class="tight"><tr><th>Consumed by</th><th class="n">Codes</th><th>What they are</th></tr>')

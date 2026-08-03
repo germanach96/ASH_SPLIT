@@ -116,7 +116,7 @@ def svg(cuentas, nombres, colores, totales=None, ancho=760):
         ax, ay, _ = A[1 << k]
         dx, dy = ax - 0.5, ay - 0.5
         n = np.hypot(dx, dy) or 1
-        ex, ey = ax + dx / n * 0.23, ay + dy / n * 0.23
+        ex, ey = ax + dx / n * 0.24, ay + dy / n * 0.24
         anchor = "middle" if abs(dx / n) < 0.35 else ("start" if dx > 0 else "end")
         etiqueta = nombres[k] if totales is None else f"{nombres[k]} · {totales[k]}"
         # Los dos nombres de los lados se salian del lienzo. Se mide el ancho a
@@ -127,8 +127,8 @@ def svg(cuentas, nombres, colores, totales=None, ancho=760):
         X += max(0, 3 - izq) - max(0, izq + ancho_txt - (ancho - 3))
         partes.append(
             f'<text x="{X:.1f}" y="{py(ey)}" font-size="{fs}" font-weight="600" '
-            f'fill="{colores[k]}" text-anchor="{anchor}" '
-            f'dominant-baseline="central">{etiqueta}</text>')
+            f'fill="{colores[k]}" stroke="#fff" stroke-width="3.5" paint-order="stroke" '
+            f'text-anchor="{anchor}" dominant-baseline="central">{etiqueta}</text>')
 
     partes.append("</svg>")
     return "".join(partes)
