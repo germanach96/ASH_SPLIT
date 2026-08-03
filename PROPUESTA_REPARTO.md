@@ -3,10 +3,21 @@
 Generada por `propose_split.py`, incrustada en `ashford_bom_graph_proposal.html`.
 
 ```
-python3 propose_split.py
+python3 propose_split.py      # el reparto -> ownership_proposal.json
 python3 build_graph_html.py --owners ownership_proposal.json \
         --out ashford_bom_graph_proposal.html --key ashford-ownership-proposal-v1
+python3 build_report.py       # Ashford ownership proposal.pdf
+python3 build_compos.py       # Ashford components by planner.xlsx + venn_compos.svg
 ```
+
+Lo que se entrega:
+
+| Fichero | Qué es |
+|---|---|
+| `Ashford ownership proposal.pdf` | El informe, en inglés: el reparto, las reglas para códigos nuevos, el Venn de los comprados y lo que queda abierto |
+| `Ashford components by planner.xlsx` | Los 3.251 comprados, con su nivel y un 1/0 por planner |
+| `ashford_bom_graph_proposal.html` | El visor con el reparto ya puesto |
+| `venn_compos.svg` | El Venn suelto |
 
 El reparto no sale de optimizar un grafo, sale de cómo está organizada la
 planta. Cada planner es dueño de un grupo de líneas de packing y todo lo demás
@@ -144,9 +155,17 @@ conjuntos. Dos ejecuciones dan el mismo `ownership_proposal.json`.
 
 ## Cómo ajustarlo
 
-Ábrelo y muévelo con el propio visor: `Select related` para coger una cadena
-entera, el rectángulo para una zona, y `Assign to` para reasignarla. Los cambios
-se guardan solos.
+En el visor, **la forma dice qué es un código y el color de quién es**: círculo
+para un FG, rombo para un bulk, triángulo para un WIP y cuadrado para un
+comprado. Un código hueco es uno que no tiene dueño.
+
+Picando un planner en el panel de **Ownership** el mapa se queda solo con sus
+códigos y con los comprados que no son de nadie porque los comparte con el
+resto; picando otra vez vuelve la fábrica entera. El **+** de cada fila lo añade
+a la selección sin cambiar la vista.
+
+Para mover cosas: `Select related` coge una cadena entera, el rectángulo coge una
+zona y `Assign to` la reasigna. Los cambios se guardan solos.
 
 La copia usa su propia clave de almacenamiento, así que trabajar sobre ella no
 toca `ashford_bom_graph.html`, que sigue en blanco.
