@@ -34,29 +34,31 @@ OWNERS = ["Sr planner 1", "Sr planner 2", "Jr planner 1", "Jr planner 2", "Inter
 # Que lineas de packing lleva cada uno. Los bloques salen de la fluidity: no hay
 # ni un codigo que corra en lineas de dos bloques distintos.
 LINEAS = {
-    # Liquidos, foundations. Dentro de foundations hay dos nucleos de fluidity
-    # que no comparten ni un codigo: 521-518-513 por un lado y 509-519 por otro.
-    # Se separan por ahi, que no cuesta nada en fluidity, y las 509-519 pasan al
-    # intern: dejar foundations entera cargaba a este planner con 698 codigos de
-    # packing frente a los 171 del intern.
-    "Sr planner 1": ["P05P0521", "P05P0518", "P05P0513"],
+    # Liquidos, foundations al completo.
+    "Sr planner 1": ["P05P0521", "P05P0518", "P05P0513", "P05P0509", "P05P0519"],
     # Liquidos, el bloque Kugler. 501-510, 502-506 y 501-502 son los enlaces
     # fuertes; 507 y 516 cuelgan de el con poca fluidity pero son de la familia.
-    "Sr planner 2": ["P05P0501", "P05P0502", "P05P0506", "P05P0507", "P05P0510", "P05P0516"],
+    #
+    # La 516 se queda aqui pese a lo que costaria poco moverla en fluidity, 6
+    # codigos con la 510: sus bulks alimentan a las lineas de este bloque 100
+    # veces y a las de foundations ninguna, asi que en foundations quedaria
+    # descolgada y con un traspaso permanente de bulk.
+    #
+    # La 520 Romaco entra aqui. No tiene fluidity con nadie, y de sus 79 codigos
+    # 59 se alimentan de mouldings y de Kugler a la vez; con ella en Kugler el
+    # traspaso pendiente es hacia mouldings, que es una linea sola (la 416).
+    "Sr planner 2": ["P05P0501", "P05P0502", "P05P0506", "P05P0507", "P05P0510",
+                     "P05P0516", "P05P0520"],
     # Powders: las lineas 600 de envasado y las 300 de pressing, donde se hacen
     # los wips que ellas mismas consumen.
     "Jr planner 1": ["P05P0602", "P05P0603", "P05P0612",
                      "P05P0306", "P05P0321", "P05P0322", "P05P0324",
                      "P05P0325", "P05P0326", "P05P0327", "P05P0329"],
-    # Mouldings, las lineas 400. Se le suma la 520 Romaco: de sus 79 codigos, 59
-    # se alimentan de mouldings y de Kugler a la vez, asi que romper por un lado
-    # o por otro cuesta casi lo mismo (70 cadenas frente a 68). Se decide por
-    # carga, que en mouldings es la mitad que en Kugler, y por dejar la cadena
-    # 416 -> 520 en una sola mano.
-    "Jr planner 2": ["P05P0402", "P05P0410", "P05P0416", "P05P0417", "P05P0520"],
-    # Tres lineas de liquidos sin fluidity entre ellas ni con nadie mas, que es
-    # la carga mas llevadera del reparto.
-    "Intern": ["P05P0509", "P05P0519", "P05P0701"],
+    # Mouldings, las lineas 400.
+    "Jr planner 2": ["P05P0402", "P05P0410", "P05P0416", "P05P0417"],
+    # Una sola linea, sin fluidity con ninguna otra: la carga mas contenida y la
+    # que menos coordinacion exige, que es lo que toca para el intern.
+    "Intern": ["P05P0701"],
 }
 
 

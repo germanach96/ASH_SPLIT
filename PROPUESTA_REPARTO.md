@@ -17,15 +17,34 @@ cuelga de ahí.
 1. Las líneas de packing se reparten por familia de producto.
 2. Cada código de packing va con el dueño de su línea.
 3. Cada bulk va con el planner que más lo consume en sus líneas de packing,
-   subiendo por toda la cadena y no solo al padre directo.
+   subiendo por toda la cadena y no solo al padre directo. Los que se venden a
+   granel y no llegan a ninguna línea van con quien lleve el resto de su máquina
+   de making.
 4. Un comprado va con su dueño solo si es uno solo. Si lo consumen varios se
    queda **sin asignar**, porque en la práctica no se gestiona por planner.
 
+## El reparto
+
+| | Líneas | Producibles | FG | BLK | WIP | CMP |
+|---|---|---:|---:|---:|---:|---:|
+| **Sr planner 1** | 521 Kalix, 518 IWK, 513 Kalix Tube Filler, 509 Bottle Foundation, 519 PKB | 1.020 | 698 | 322 | 0 | 639 |
+| **Sr planner 2** | 501, 502, 506, 507, 510, 516 Kugler, 520 Romaco | 1.605 | 926 | 585 | 94 | 1.260 |
+| **Jr planner 1** | 602, 603, 612 · 306, 321, 322, 324, 325, 326, 327, 329 | 382 | 159 | 83 | 140 | 170 |
+| **Jr planner 2** | 402, 410, 416, 417 | 663 | 425 | 236 | 2 | 647 |
+| **Intern** | 701 Liquids Prestige | 255 | 171 | 84 | 0 | 257 |
+| Sin asignar | | | | | | 278 |
+
+**Las 28 líneas de packing tienen un solo dueño.** De las 63 máquinas, 49 son de
+un solo planner; las 14 compartidas son todas de making, ninguna de packing.
+
+El **86 %** de los productos finales tienen toda su cadena de producibles en un
+solo planner: 2.173 de 2.532.
+
 ## Los bloques de fluidity
 
-Antes de repartir hay que saber qué no se puede partir. Mirando qué códigos
-pueden correr en dos líneas a la vez, las 28 líneas de packing se separan en
-bloques que **no comparten ni un solo código** entre sí:
+Qué líneas se pueden separar no es una opinión, es un dato. Agrupando por
+códigos que pueden correr en dos líneas a la vez, las 28 líneas de packing se
+parten en bloques que **no comparten ni un solo código**:
 
 | Códigos | Familia | Líneas |
 |---:|---|---|
@@ -44,71 +63,49 @@ bloques que **no comparten ni un solo código** entre sí:
 | 40 | powders | 602, 603 Robot Line |
 | 27 | powders | 306 Kemwall, 327 Robot Vetraco |
 
-Los enlaces fuertes dentro del bloque Kugler son 501–510 (124 códigos),
-502–506 (101) y 501–502 (63). La 507 y la 516 cuelgan de él con muy poca
-fluidity, 2 y 6 códigos, pero son de la misma familia y se dejan dentro.
+Ningún bloque queda partido entre dos planners.
 
-## El reparto
+## La 516: por qué se queda en Kugler
 
-| | Líneas | Producibles | FG | BLK | WIP | CMP |
-|---|---|---:|---:|---:|---:|---:|
-| **Sr planner 1** | 521 Kalix, 518 IWK, 513 Kalix Tube Filler | 690 | 477 | 213 | 0 | 249 |
-| **Sr planner 2** | 501, 502, 506, 507, 510, 516 Kugler | 1.530 | 847 | 589 | 94 | 1.168 |
-| **Jr planner 1** | 602, 603, 612 · 306, 321, 322, 324, 325, 326, 327, 329 | 382 | 159 | 83 | 140 | 170 |
-| **Jr planner 2** | 402, 410, 416, 417 · 520 Romaco | 742 | 504 | 236 | 2 | 739 |
-| **Intern** | 509 Bottle Foundation, 519 PKB, 701 Prestige | 581 | 392 | 189 | 0 | 631 |
-| Sin asignar | | | | | | 294 |
+Moverla a foundations cuesta muy poco en fluidity, **6 códigos** con la 510. Pero
+la fluidity no es lo único que la ata:
 
-**Las 28 líneas de packing tienen un solo dueño.** De las 63 máquinas, 49 son de
-un solo planner; las 14 compartidas son todas de making, ninguna de packing.
+- Sus bulks (EKATO1000, BECOMIX 2000L, BECO5, EKATO500ATEX, EKATO200) alimentan
+  a las líneas del bloque Kugler **100 veces**.
+- A las líneas de foundations (521, 518, 513, 509, 519), **ninguna**.
 
-El 77 % de los productos finales tienen toda su cadena de producibles en un solo
-planner.
+En foundations quedaría descolgada: una línea suelta cuyo bulk lo programa otro
+planner todos los días. Se queda con Kugler.
 
-## Las tres decisiones que dejaste abiertas
+Si aun así la quieres en foundations, es mover `"P05P0516"` de una lista a otra
+en `LINEAS` dentro de `propose_split.py`. Mueve 47 códigos de packing, así que
+tampoco arregla el desequilibrio.
 
-**La 520 Romaco va con mouldings.** Es una línea de kits: de sus 79 códigos, 59
-se alimentan de mouldings **y** de Kugler a la vez. Romperla por un lado cuesta
-70 cadenas y por el otro 68, así que en cadenas da igual. Se decide por carga
-—mouldings es la mitad que Kugler— y por dejar la cadena 416 → 520 en una sola
-mano, que es como la planteaste.
+## La 520 Romaco, con Kugler
 
-**La 507 se queda en Kugler.** Solo comparte 4 códigos con el bloque (2 con la
-501 y 2 con la 510), pero es de la familia y no hay ningún sitio mejor.
+No tiene fluidity con nadie. De sus 79 códigos, **59 se alimentan de mouldings y
+de Kugler a la vez**, así que el traspaso existe se ponga donde se ponga. Con
+ella en Kugler, lo que queda pendiente es hacia mouldings, que por ese lado es
+una sola línea, la 416.
 
-**Powders y mouldings van a Jr planners distintos.** Juntarlos en uno liberaba un
-planner para líquidos, pero líquidos no se puede partir en cuatro sin romper el
-bloque Kugler, así que no compensaba.
-
-## Un cambio sobre tu esquema, y por qué
-
-Describiste foundations como un grupo: 521, 509, 519, 518 y 513. Dentro tiene
-**dos núcleos que no comparten ni un código**: 521–518–513 por un lado y
-509–519 por otro. Se separan por ahí, que no cuesta nada en fluidity, y las
-509–519 pasan al intern.
-
-Dejando foundations entera, ese planner se llevaba 698 códigos de packing y el
-intern se quedaba con 171. Si prefieres el grupo completo, es mover dos líneas
-en `LINEAS` dentro de `propose_split.py`, o dos selecciones en el propio visor.
-
-## Lo que no cuadra: el desequilibrio
+## El desequilibrio
 
 | | Producibles |
 |---|---:|
-| Sr planner 2 (Kugler) | 1.530 |
-| Jr planner 2 (mouldings) | 742 |
-| Sr planner 1 (foundations) | 690 |
-| Intern | 581 |
+| Sr planner 2 (Kugler + 520) | 1.605 |
+| Sr planner 1 (foundations) | 1.020 |
+| Jr planner 2 (mouldings) | 663 |
 | Jr planner 1 (powders) | 382 |
+| Intern (701) | 255 |
 
-**Cuatro a uno entre el mayor y el menor.** No es un fallo del reparto, es que el
-bloque Kugler es el 36 % de todo el packing de la planta y no se puede partir sin
-romper fluidity.
+**Seis a uno entre el mayor y el menor.** Los dos Sr llevan el 62 % de los
+producibles, que tiene sentido, y el intern la carga más contenida y la que menos
+coordinación exige, que es una línea sola sin fluidity con nadie.
 
-Si quieres equilibrarlo, la costura más débil de Kugler está entre
-**501+510+516+507** (597 códigos) y **502+506** (428). Partir por ahí rompe la
-fluidity de **84 códigos** que pueden correr a los dos lados. Es la única palanca
-real que hay, y es tu decisión si esos 84 valen el equilibrio.
+Lo que sigue sin tener arreglo limpio es Kugler: es el 36 % de todo el packing de
+la planta en un bloque que no se parte sin romper fluidity. Su costura más débil
+está entre **501+510+516+507** (597 códigos) y **502+506** (428), y cortarla
+rompería la fluidity de **84 códigos**. Es la única palanca real que queda.
 
 ## Cómo ajustarlo
 
