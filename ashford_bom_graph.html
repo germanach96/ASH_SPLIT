@@ -87,11 +87,7 @@
   .legend { display: flex; gap: 15px; flex-wrap: wrap; }
   .lg { display: flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 11px; letter-spacing: .05em; color: var(--ink-2); white-space: nowrap; }
   /* Class shows as a ring, matching how the graph draws it now. */
-  .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; background: none; border: 3px solid transparent; }
-  .dot.fg { border-color: var(--fg); }
-  .dot.blk { border-color: var(--blk); }
-  .dot.wip { border-color: var(--wip); }
-  .dot.cmp { border-color: var(--cmp); }
+  .gl { flex: none; overflow: visible; }
   .swatch { width: 12px; height: 12px; border-radius: 50%; flex: none; border: 1px solid var(--rule); }
   .swatch.none { background: var(--panel); }
   .tools { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -195,8 +191,17 @@
     letter-spacing: 0; text-transform: none; color: var(--ink); cursor: pointer;
   }
   .own:hover { background: var(--panel-2); border-left-color: var(--rule); }
+  .own[aria-pressed="true"] { background: var(--panel-2); border-left-color: var(--ink-2); }
   .own .n { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--ink-3); font-size: 10.5px; }
   .own .bar { height: 3px; border-radius: 2px; }
+  .ownrow { display: flex; align-items: center; }
+  .ownrow .own { min-width: 0; }
+  .ownrow .own span:not(.n) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mark {
+    flex: none; border: 0; background: none; color: var(--ink-3); cursor: pointer;
+    font-family: var(--mono); font-size: 13px; line-height: 1; padding: 6px 7px; border-radius: 2px;
+  }
+  .mark:hover { background: var(--panel-2); color: var(--ink); }
 
   #modal {
     position: fixed; inset: 0; z-index: 20; display: none; place-items: center;
@@ -268,12 +273,7 @@
 <div id="app">
   <header id="bar">
     <div id="brand"><b>Ashford</b><span>product tree</span></div>
-    <div class="legend">
-      <span class="lg"><i class="dot fg"></i>FG · finished good</span>
-      <span class="lg"><i class="dot blk"></i>BLK · bulk</span>
-      <span class="lg"><i class="dot wip"></i>WIP · work in progress</span>
-      <span class="lg"><i class="dot cmp"></i>CMP · purchased</span>
-    </div>
+    <div class="legend" id="legend"></div>
     <div class="tools">
       <div class="split" role="group" aria-label="Layout">
         <button id="lay-tree" aria-pressed="true">Hierarchy</button>
@@ -352,7 +352,7 @@
     <div class="sec">
       <h2>Ownership</h2>
       <div id="owners"></div>
-      <p class="note">Click an owner to select every code they hold, ready to hand over.</p>
+      <p class="note">Click a planner to see only their codes, with the ones nobody holds that they share with the rest. Click again to come back to the whole factory. The <b>+</b> adds them to the selection without changing the view.</p>
       <div class="selacts" style="margin-top:9px">
         <button id="btn-reset">Clear all owners</button>
       </div>
@@ -540,7 +540,7 @@ function saveOwners() {
 }
 
 /** Transitive closure upwards (consumers) and/or downwards (components). */
-function collect(seeds, dir) {
+function collect(seeds, dir, keep) {
   INVIEW.fill(0);
   const out = [];
   const walk = (off, idx) => {
@@ -550,7 +550,7 @@ function collect(seeds, dir) {
       const n = stack.pop();
       for (let e = off[n]; e < off[n + 1]; e++) {
         const m = idx[e];
-        if (!INVIEW[m]) { INVIEW[m] = 1; out.push(m); stack.push(m); }
+        if (!INVIEW[m] && (!keep || keep(m))) { INVIEW[m] = 1; out.push(m); stack.push(m); }
       }
     }
   };
@@ -791,13 +791,15 @@ function layoutClusters(nodes, edges) {
 /* ================================================================== *
  * Applying a scope
  * ================================================================== */
-function setScope(kind, seeds, dir, label) {
-  scope = { kind, seeds, dir, label };
+function setScope(spec) {
+  scope = spec;
+  renderOwners();          // the owner list shows which one is being filtered
+  const { seeds, dir, keep } = spec;
   const busy = document.getElementById("busy");
   busy.classList.add("on");
   // One spare frame so the notice paints before the thread blocks.
   requestAnimationFrame(() => requestAnimationFrame(() => {
-    const { nodes, edges } = collect(seeds, dir);
+    const { nodes, edges } = collect(seeds, dir, keep);
     // Clustered blocks sit far apart, so individual edges cross the whole
     // drawing and pile into a grey mass much sooner than in the layered view.
     if (autoGroup) groupLinks = nodes.length > 2500 ||
@@ -821,9 +823,15 @@ function describeScope() {
   const links = groupLinks && view.linkGroups
     ? `${view.linkGroups.length / 3} bundled links`
     : `${view.edges.length / 2} links`;
+  let extra = "";
+  if (scope.kind === "owner" && scope.owner !== NO_OWNER) {
+    let shared = 0;
+    for (const n of view.nodes) if (OWNER[n] === NO_OWNER) shared++;
+    extra = ` · ${shared} shared with other planners`;
+  }
   document.getElementById("scope").innerHTML =
     `<b>${scope.label}</b> — ${view.nodes.length} codes, ${links} · ` +
-    KIND_CODE.map((name, i) => `${c[i]} ${name}`).join(", ");
+    KIND_CODE.map((name, i) => `${c[i]} ${name}`).join(", ") + extra;
 }
 
 /** Sums the edges between two clusters into one line, thickness set by how
@@ -851,6 +859,43 @@ function buildLinkGroups() {
  * ================================================================== */
 const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
 let k = 1, tx = 0, ty = 0, dpr = 1;
+
+/** The same four shapes as inline SVG, for the lists and the legend. Pass an
+ *  owner index to fill it in their colour, NO_OWNER to draw it hollow, or
+ *  "ink" for the legend, where the shape is the whole point and the colour
+ *  would only get in the way. */
+function glyph(kind, owner, size = 14) {
+  const c = size / 2, r = size * 0.32;
+  const solid = owner === "ink" ? "var(--ink-2)" : owner >= 0 ? `var(--own${owner})` : null;
+  let el;
+  if (kind === FG) el = `<circle cx="${c}" cy="${c}" r="${r}"/>`;
+  else if (kind === CMP) { const s = r * 0.886; el = `<rect x="${c - s}" y="${c - s}" width="${s * 2}" height="${s * 2}"/>`; }
+  else if (kind === WIP) { const a = r * 1.45, w = a * 0.866, h = a * 0.5; el = `<polygon points="${c},${c - a} ${c + w},${c + h} ${c - w},${c + h}"/>`; }
+  else { const a = r * 1.253; el = `<polygon points="${c},${c - a} ${c + a},${c} ${c},${c + a} ${c - a},${c}"/>`; }
+  return `<svg class="gl" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}"`
+       + ` fill="${solid || "none"}" stroke="${solid ? "none" : "var(--ink-3)"}" stroke-width="1.4"`
+       + ` aria-hidden="true">${el}</svg>`;
+}
+
+/* The class is the shape: circle for a finished good, diamond for a bulk,
+ * triangle for work in progress, square for a purchased code. The radii are
+ * tuned so the four cover about the same amount of ink at the same r — a
+ * triangle drawn inside the circle would look half the size next to it. */
+function shapePath(x, y, r, kind) {
+  ctx.beginPath();
+  if (kind === FG) { ctx.arc(x, y, r, 0, 6.2832); return; }
+  if (kind === CMP) { const s = r * 0.886; ctx.rect(x - s, y - s, s * 2, s * 2); return; }
+  if (kind === WIP) {
+    const a = r * 1.45;
+    ctx.moveTo(x, y - a);
+    ctx.lineTo(x + a * 0.866, y + a * 0.5);
+    ctx.lineTo(x - a * 0.866, y + a * 0.5);
+  } else {
+    const a = r * 1.253;
+    ctx.moveTo(x, y - a); ctx.lineTo(x + a, y); ctx.lineTo(x, y + a); ctx.lineTo(x - a, y);
+  }
+  ctx.closePath();
+}
 
 let pal = {};
 function readPalette() {
@@ -1020,28 +1065,28 @@ function draw() {
     }
   }
 
-  // Points: an outer disc in the class colour with an inner disc in the owner's
-  // colour on top. Two filled discs rather than a stroked ring, because a stroke
-  // wide enough to read at this size leaves no room for the fill inside it.
-  // An unowned code gets the background as its fill, so it reads as hollow.
+  // Points: the shape is the class and the colour is the owner. A code nobody
+  // holds is drawn hollow — background inside, a thin outline so it still reads.
   // Being selected shows as a halo underneath rather than a fill on top, so a
-  // marked point still shows both its class and its owner while you work.
-  const cols = [pal.fg, pal.blk, pal.wip, pal.cmp];
+  // marked point keeps showing both its class and its owner while you work.
   ctx.lineWidth = 2 / k;
   for (const n of view.nodes) {
     const dim = near && !near.has(n);
     ctx.globalAlpha = dim ? 0.26 : 1;
     const r = n === selected ? R * 1.5 : R;
     if (MARKED[n]) {
-      ctx.beginPath(); ctx.arc(PX[n], PY[n], r * 1.55, 0, 6.2832);
+      shapePath(PX[n], PY[n], r * 1.6, KIND[n]);
       ctx.fillStyle = pal.pick; ctx.fill();
     }
-    ctx.beginPath(); ctx.arc(PX[n], PY[n], r, 0, 6.2832);
-    ctx.fillStyle = cols[KIND[n]]; ctx.fill();
+    shapePath(PX[n], PY[n], r, KIND[n]);
+    if (OWNER[n] === NO_OWNER) {
+      ctx.fillStyle = pal.bg; ctx.fill();
+      ctx.strokeStyle = pal.ink3; ctx.lineWidth = 1.4 / k; ctx.stroke();
+      ctx.lineWidth = 2 / k;
+    } else {
+      ctx.fillStyle = pal.own[OWNER[n]]; ctx.fill();
+    }
     if (n === selected || n === hovered) { ctx.strokeStyle = pal.ink; ctx.stroke(); }
-    ctx.beginPath(); ctx.arc(PX[n], PY[n], r * 0.56, 0, 6.2832);
-    ctx.fillStyle = OWNER[n] === NO_OWNER ? pal.bg : pal.own[OWNER[n]];
-    ctx.fill();
   }
 
   // Cluster labels and graph codes are sized in drawing units, not screen pixels,
@@ -1309,8 +1354,25 @@ function assignTo(owner) {
   saveOwners();
   renderSelection();
   renderOwners();
+  renderCodes();       // the list is coloured by owner too
   if (selected >= 0) select(selected);
   draw();
+}
+
+/** Everything one planner holds, plus what it hangs off. The walk goes down
+ *  from their codes and only steps into a code that is theirs or that nobody
+ *  holds, so the purchased codes shared with other planners come along and
+ *  another planner's tree does not. */
+function showOwner(o) {
+  const seeds = [];
+  for (let i = 0; i < N; i++) if (OWNER[i] === o) seeds.push(i);
+  if (!seeds.length) return;
+  layoutMode = "clusters";
+  setScope({
+    kind: "owner", owner: o, seeds, dir: "down",
+    keep: m => OWNER[m] === o || OWNER[m] === NO_OWNER,
+    label: o === NO_OWNER ? "Held by nobody" : OWNERS[o]
+  });
 }
 
 function renderOwners() {
@@ -1320,16 +1382,22 @@ function renderOwners() {
   const most = Math.max(1, ...count);
 
   const box = document.getElementById("owners");
-  box.innerHTML = OWNERS.map((name, i) => `
-    <button class="own" data-own="${i}" title="Select every code ${name} holds">
-      <i class="swatch" style="background:var(--own${i})"></i>${name}
-      <span class="n">${count[i]}</span>
-    </button>
-    <div class="bar" style="width:${(count[i] / most) * 100}%;background:var(--own${i});opacity:${count[i] ? .75 : 0}"></div>`).join("") + `
-    <button class="own" data-own="none" title="Select every code with nobody on it">
-      <i class="swatch none"></i>Unassigned<span class="n">${none}</span>
-    </button>`;
+  const row = (i, name, colour, n, tip) => `
+    <div class="ownrow">
+      <button class="own" data-show="${i}" aria-pressed="${scope.kind === "owner" && scope.owner === i}" title="${tip}">
+        <i class="swatch" style="${colour}"></i><span>${name}</span><span class="n">${n}</span>
+      </button>
+      <button class="mark" data-own="${i}" title="Add ${name} to the selection without changing the view">+</button>
+    </div>`;
+  box.innerHTML = OWNERS.map((name, i) =>
+    row(i, name, `background:var(--own${i})`, count[i], `Show only what ${name} holds, with the codes it hangs off`)
+    + `<div class="bar" style="width:${(count[i] / most) * 100}%;background:var(--own${i});opacity:${count[i] ? .75 : 0}"></div>`
+  ).join("") + row("none", "Unassigned", "", none, "Show the codes nobody holds");
 
+  box.querySelectorAll("[data-show]").forEach(b => b.onclick = () => {
+    const want = b.dataset.show === "none" ? NO_OWNER : +b.dataset.show;
+    scope.kind === "owner" && scope.owner === want ? showAll() : showOwner(want);
+  });
   box.querySelectorAll("[data-own]").forEach(b => b.onclick = () => {
     const want = b.dataset.own === "none" ? NO_OWNER : +b.dataset.own;
     let added = 0;
@@ -1339,6 +1407,12 @@ function renderOwners() {
 
   const reset = document.getElementById("btn-reset");
   reset.disabled = none === N;
+}
+
+function renderLegend() {
+  document.getElementById("legend").innerHTML =
+    KIND_CODE.map((code, i) => `<span class="lg">${glyph(i, "ink", 13)}${code} · ${KIND_NAME[i].toLowerCase()}</span>`).join("")
+    + `<span class="lg" style="color:var(--ink-3)">shape · what it is &nbsp; colour · whose it is</span>`;
 }
 
 function renderSelection() {
@@ -1388,8 +1462,8 @@ function select(n) {
   const box = document.getElementById("detail");
   if (n < 0) {
     box.innerHTML = `<div class="sec"><p class="empty">Pick a code or a machine on the left, or click a point in the graph.</p>
-      <p class="note">A point's ring is its class and its fill is its owner, so a hollow one is
-      a code nobody holds yet.</p></div>`;
+      <p class="note">A point's shape is what it is and its colour is whose it is, so a hollow
+      one is a code nobody holds yet. Click a planner under Ownership to see only their codes.</p></div>`;
     renderSelection();   // the assign box works off the selected code too
     draw(); return;
   }
@@ -1397,7 +1471,7 @@ function select(n) {
   box.innerHTML = `
     <div class="sec">
       <p id="dcode">${CODES[n]}</p>
-      <span class="badge ${KIND_CLASS[KIND[n]]}"><i class="dot ${KIND_CLASS[KIND[n]]}"></i>${KIND_CODE[KIND[n]]} · ${KIND_NAME[KIND[n]]}</span>
+      <span class="badge ${KIND_CLASS[KIND[n]]}">${glyph(KIND[n], "ink", 12)}${KIND_CODE[KIND[n]]} · ${KIND_NAME[KIND[n]]}</span>
       <p class="note">${KIND_NOTE[KIND[n]]}</p>
     </div>
     <div class="sec">
@@ -1433,8 +1507,8 @@ function select(n) {
     </div>`;
   box.querySelectorAll("[data-act]").forEach(b => b.onclick = () => {
     const d = b.dataset.act;
-    setScope("code", [n], d,
-      d === "both" ? `Context of ${CODES[n]}` : d === "down" ? `Explosion of ${CODES[n]}` : `Where ${CODES[n]} is used`);
+    setScope({ kind: "code", seeds: [n], dir: d,
+      label: d === "both" ? `Context of ${CODES[n]}` : d === "down" ? `Explosion of ${CODES[n]}` : `Where ${CODES[n]} is used` });
   });
   renderSelection();   // with nothing marked, the assign box targets this code
   draw();
@@ -1493,14 +1567,14 @@ function renderCodes() {
   const list = document.getElementById("clist");
   list.innerHTML = hits.map(i => `
     <button class="row" data-i="${i}" aria-current="${scope.kind === "code" && scope.seeds[0] === i}">
-      <i class="dot ${KIND_CLASS[KIND[i]]}"></i>${CODES[i]}
+      ${glyph(KIND[i], OWNER[i])}${CODES[i]}
       <span class="meta">${nCh(i) ? nCh(i) + " comp." : "—"}</span>
     </button>`).join("");
   list.querySelectorAll(".row").forEach(b => b.onclick = () => {
     const i = +b.dataset.i;
     layoutMode = "tree";
     select(i);
-    setScope("code", [i], "both", `Context of ${CODES[i]}`);
+    setScope({ kind: "code", seeds: [i], dir: "both", label: `Context of ${CODES[i]}` });
   });
 }
 
@@ -1544,8 +1618,8 @@ function applyMachines() {
   const seeds = [...new Set([].concat(...[...pickedMachines].map(m => MACH_NODES[m])))];
   const names = [...pickedMachines].map(m => MACHINES[m]).sort();
   layoutMode = "clusters";
-  setScope("machines", seeds, "both",
-    names.length === 1 ? `Machine ${names[0]}` : `${names.length} machines: ${names.slice(0, 3).join(", ")}${names.length > 3 ? "…" : ""}`);
+  setScope({ kind: "machines", seeds, dir: "both",
+    label: names.length === 1 ? `Machine ${names[0]}` : `${names.length} machines: ${names.slice(0, 3).join(", ")}${names.length > 3 ? "…" : ""}` });
 }
 
 /* ================================================================== *
@@ -1636,7 +1710,7 @@ function closeExport() { modal.classList.remove("on"); modal.hidden = true; }
     }
     clearTimeout(timer); armed = false; reset.textContent = "Clear all owners";
     OWNER.fill(NO_OWNER); saveOwners();
-    renderOwners(); renderSelection();
+    renderOwners(); renderSelection(); renderCodes();
     if (selected >= 0) select(selected);
     draw();
   };
@@ -1683,7 +1757,7 @@ function syncTools() {
   edit.disabled = !view.clusters.length;
   if (edit.disabled && editMode) setMode("edit");   // toggles it back off
 }
-const relayout = () => setScope(scope.kind, scope.seeds, scope.dir, scope.label);
+const relayout = () => setScope(scope);
 document.getElementById("lay-tree").onclick = () => { layoutMode = "tree"; relayout(); };
 document.getElementById("lay-clu").onclick = () => { layoutMode = "clusters"; relayout(); };
 document.getElementById("btn-links").onclick = () => { autoGroup = false; groupLinks = !groupLinks; relayout(); };
@@ -1718,14 +1792,15 @@ function setHint() {
     : `<span>Drag a point to move it</span><span>Drag the background to pan</span>
        <span>Wheel to zoom</span><span>Click to read the code</span>`;
 }
-document.getElementById("btn-all").onclick = () => {
+function showAll() {
   layoutMode = "clusters";
   // Seeds are the codes nothing consumes, which covers every tree top whether
   // it ends up classified FG or BLK.
   const seeds = [];
   for (let i = 0; i < N; i++) if (nPa(i) === 0) seeds.push(i);
-  setScope("all", seeds, "down", "Whole factory");
-};
+  setScope({ kind: "all", seeds, dir: "down", label: "Whole factory" });
+}
+document.getElementById("btn-all").onclick = showAll;
 
 /* ================================================================== *
  * Startup
@@ -1737,11 +1812,12 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", onTheme);
 new MutationObserver(onTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
 loadOwners();
+renderLegend();
 renderCodes();
 renderMachines();
 renderOwners();
 renderSelection();
 select(-1);
-setScope("code", [DATA.start], "both", `Context of ${CODES[DATA.start]}`);
+setScope({ kind: "code", seeds: [DATA.start], dir: "both", label: `Context of ${CODES[DATA.start]}` });
 resize();
 </script>

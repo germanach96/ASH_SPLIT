@@ -144,9 +144,17 @@ conjuntos. Dos ejecuciones dan el mismo `ownership_proposal.json`.
 
 ## Cómo ajustarlo
 
-Ábrelo y muévelo con el propio visor: `Select related` para coger una cadena
-entera, el rectángulo para una zona, y `Assign to` para reasignarla. Los cambios
-se guardan solos.
+En el visor, **la forma dice qué es un código y el color de quién es**: círculo
+para un FG, rombo para un bulk, triángulo para un WIP y cuadrado para un
+comprado. Un código hueco es uno que no tiene dueño.
+
+Picando un planner en el panel de **Ownership** el mapa se queda solo con sus
+códigos y con los comprados que no son de nadie porque los comparte con el
+resto; picando otra vez vuelve la fábrica entera. El **+** de cada fila lo añade
+a la selección sin cambiar la vista.
+
+Para mover cosas: `Select related` coge una cadena entera, el rectángulo coge una
+zona y `Assign to` la reasigna. Los cambios se guardan solos.
 
 La copia usa su propia clave de almacenamiento, así que trabajar sobre ella no
 toca `ashford_bom_graph.html`, que sigue en blanco.
