@@ -10,7 +10,8 @@ planta. Cada planner es dueno de un grupo de lineas de packing, y todo lo demas
 cuelga de ahi:
 
   1. Las lineas de packing se reparten por familia de producto.
-  2. Cada codigo de packing va con el dueno de su linea.
+  2. Cada codigo de packing va con el dueno de su linea. Si corre en lineas de
+     dos duenos, va con el de la linea mas pequena, que asi queda entera.
   3. Cada bulk va con el planner que mas lo consume en sus lineas de packing.
   4. Un comprado va con su dueno solo si es uno solo; si lo consumen varios se
      queda sin asignar, porque en la practica no se gestiona por planner.
@@ -34,21 +35,19 @@ OWNERS = ["Sr planner 1", "Sr planner 2", "Jr planner 1", "Jr planner 2", "Inter
 # Que lineas de packing lleva cada uno. Los bloques salen de la fluidity: no hay
 # ni un codigo que corra en lineas de dos bloques distintos.
 LINEAS = {
-    # Liquidos, foundations al completo.
-    "Sr planner 1": ["P05P0521", "P05P0518", "P05P0513", "P05P0509", "P05P0519"],
+    # Liquidos, foundations al completo, mas la 516. La 516 es una Kugler y sus
+    # bulks alimentan al bloque Kugler 100 veces y a foundations ninguna, asi
+    # que llega aqui con un traspaso de bulk permanente; se pone donde se pidio.
+    "Sr planner 1": ["P05P0521", "P05P0518", "P05P0513", "P05P0509", "P05P0519",
+                     "P05P0516"],
     # Liquidos, el bloque Kugler. 501-510, 502-506 y 501-502 son los enlaces
-    # fuertes; 507 y 516 cuelgan de el con poca fluidity pero son de la familia.
-    #
-    # La 516 se queda aqui pese a lo que costaria poco moverla en fluidity, 6
-    # codigos con la 510: sus bulks alimentan a las lineas de este bloque 100
-    # veces y a las de foundations ninguna, asi que en foundations quedaria
-    # descolgada y con un traspaso permanente de bulk.
+    # fuertes, y la 507 cuelga de el con solo 4 codigos.
     #
     # La 520 Romaco entra aqui. No tiene fluidity con nadie, y de sus 79 codigos
     # 59 se alimentan de mouldings y de Kugler a la vez; con ella en Kugler el
     # traspaso pendiente es hacia mouldings, que es una linea sola (la 416).
     "Sr planner 2": ["P05P0501", "P05P0502", "P05P0506", "P05P0507", "P05P0510",
-                     "P05P0516", "P05P0520"],
+                     "P05P0520"],
     # Powders: las lineas 600 de envasado y las 300 de pressing, donde se hacen
     # los wips que ellas mismas consumen.
     "Jr planner 1": ["P05P0602", "P05P0603", "P05P0612",
@@ -76,6 +75,11 @@ def main():
     maq = defaultdict(set)
     for m, p in zip(rate.MachineId, rate.ProductID):
         maq[p].add(m)
+    # Ordenados a proposito: recorrer conjuntos de cadenas deja el resultado a
+    # merced del hash del proceso, y el reparto tiene que salir igual siempre.
+    hijos = {k: sorted(v) for k, v in hijos.items()}
+    padres = {k: sorted(v) for k, v in padres.items()}
+    maq = {k: sorted(v) for k, v in maq.items()}
 
     linea_de = {m: o for o, ms in LINEAS.items() for m in ms}
     packing = [m for m in rate.MachineId.unique() if m.startswith("P05P")]
@@ -85,14 +89,19 @@ def main():
     owner = {}
 
     # ---- 1. cada codigo de packing, con el dueno de su linea ----
+    # Un codigo que corre en lineas de dos duenos hay que romperlo por algun
+    # lado: va con el dueno de la linea mas pequena, que asi queda entera y la
+    # que se parte es la grande, que lo nota menos.
+    tam_linea = Counter(m for c in codigos for m in maq.get(c, ()) if m in linea_de)
     conflicto = 0
     for c in codigos:
-        duenos = {linea_de[m] for m in maq.get(c, ()) if m in linea_de}
-        if not duenos:
+        lineas = [m for m in maq.get(c, ()) if m in linea_de]
+        if not lineas:
             continue
-        if len(duenos) > 1:
+        if len({linea_de[m] for m in lineas}) > 1:
             conflicto += 1
-        owner[c] = OWNERS.index(sorted(duenos)[0])
+        elegida = min(lineas, key=lambda m: (tam_linea[m], m))
+        owner[c] = OWNERS.index(linea_de[elegida])
     print(f"1. packing: {len(owner)} codigos"
           + (f" ({conflicto} en lineas de dos duenos)" if conflicto else " (ninguno en dos bloques)"))
 
@@ -103,13 +112,22 @@ def main():
     for c in codigos:
         for m in maq.get(c, ()):
             por_maquina[m].append(c)
+    def mas_lo_usa(c, cuenta):
+        """El que mas lo consume. Si empatan, el que ya lleve mas de su vaso."""
+        top = max(cuenta.values())
+        empatados = sorted(o for o in cuenta if cuenta[o] == top)
+        if len(empatados) == 1:
+            return empatados[0]
+        vaso = Counter(owner[o] for m in maq[c] for o in por_maquina[m] if o in owner)
+        return max(empatados, key=lambda o: (vaso.get(o, 0), -o))
+
     bulks = [c for c in codigos if c not in owner and maq.get(c)]
     sin_rastro = []
     for c in bulks:
         pila, visto, cuenta = [c], {c}, Counter()
         while pila:
             x = pila.pop()
-            for p in padres[x]:
+            for p in padres.get(x, ()):
                 if p in visto:
                     continue
                 visto.add(p)
@@ -118,7 +136,7 @@ def main():
                 else:
                     pila.append(p)
         if cuenta:
-            owner[c] = cuenta.most_common(1)[0][0]
+            owner[c] = mas_lo_usa(c, cuenta)
         else:
             sin_rastro.append(c)
     print(f"2. making : {len(bulks) - len(sin_rastro)} bulks por consumo en packing")
@@ -132,7 +150,7 @@ def main():
             cuenta = Counter(owner[o] for m in maq[c]
                              for o in por_maquina[m] if o in owner)
             if cuenta:
-                owner[c] = cuenta.most_common(1)[0][0]
+                owner[c] = mas_lo_usa(c, cuenta)
     huerfanos = sum(1 for c in sin_rastro if c not in owner)
     print(f"          {len(sin_rastro) - huerfanos} a granel por mayoria de su maquina"
           + (f", {huerfanos} sin resolver" if huerfanos else ""))
@@ -141,7 +159,7 @@ def main():
     comprados = [c for c in codigos if not maq.get(c)]
     unico = compartido = 0
     for c in comprados:
-        duenos = {owner[p] for p in padres[c] if p in owner}
+        duenos = {owner[p] for p in padres.get(c, ()) if p in owner}
         if len(duenos) == 1:
             owner[c] = duenos.pop()
             unico += 1
@@ -181,6 +199,43 @@ def main():
     p05p = [m for m in partidas if m.startswith("P05P")]
     print(f"  de ellas lineas de packing: {len(p05p)}" + (f" -> {p05p}" if p05p else " (ninguna)"))
 
+    # bulks: cada uno tiene que ser del planner que lo usa
+    # Se recalcula sobre el reparto final, sin reutilizar nada del paso 2, para
+    # que sea una comprobacion de verdad y no un eco de la regla.
+    es_packing = {c for c in codigos if any(m.startswith("P05P") for m in maq.get(c, ()))}
+    solo_making = [c for c in codigos if maq.get(c) and c not in es_packing]
+    usan = {}
+    for c in solo_making:
+        pila, visto, cuenta = [c], {c}, Counter()
+        while pila:
+            x = pila.pop()
+            for p in padres.get(x, ()):
+                if p in visto:
+                    continue
+                visto.add(p)
+                if p in es_packing:
+                    cuenta[owner[p]] += 1
+                else:
+                    pila.append(p)
+        usan[c] = cuenta
+    reparto_bulk = Counter(len(usan[c]) for c in solo_making)
+    ajeno = [c for c in solo_making if usan[c] and owner.get(c) not in usan[c]]
+    compartidos = [c for c in solo_making if len(usan[c]) > 1]
+    print(f"\nbulks: {len(solo_making)} en total")
+    print(f"  {reparto_bulk[1]} los usa un solo planner y son suyos")
+    print(f"  {reparto_bulk[0]} se venden a granel, no los consume ninguna linea")
+    print(f"  {len(compartidos)} los usan dos o tres planners a la vez")
+    print(f"  {len(ajeno)} en manos de quien no los usa"
+          + ("  <- deberia ser 0" if ajeno else ""))
+    # Un bulk que usan k planners deja k-1 sin el, se ponga donde se ponga: ese
+    # es el suelo con el que hay que comparar lo que sale.
+    suelo = sum(len(usan[c]) - 1 for c in compartidos)
+    fuera = sum(1 for c in solo_making for o in usan[c] if owner.get(c) != o)
+    print(f"  traspasos pendientes: {fuera} (minimo posible con estas lineas: {suelo})")
+    for o, nom in enumerate(OWNERS):
+        usa = [c for c in solo_making if o in usan[c]]
+        print(f"    {nom:16} usa {len(usa):>4}, son suyos {sum(1 for c in usa if owner.get(c) == o):>4}")
+
     # cadenas completas entre producibles
     finales = [c for c in codigos if maq.get(c) and c not in consumidos]
     enteras = 0
@@ -188,7 +243,7 @@ def main():
         pila, visto, duenos = [f], {f}, {owner.get(f)}
         while pila:
             x = pila.pop()
-            for h in hijos[x]:
+            for h in hijos.get(x, ()):
                 if maq.get(h) and h not in visto:
                     visto.add(h)
                     duenos.add(owner.get(h))
