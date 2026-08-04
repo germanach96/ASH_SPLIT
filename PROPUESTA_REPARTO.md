@@ -6,15 +6,20 @@ Generada por `propose_split.py`, incrustada en `ashford_bom_graph_proposal.html`
 python3 propose_split.py      # el reparto -> ownership_proposal.json
 python3 build_graph_html.py --owners ownership_proposal.json \
         --out ashford_bom_graph_proposal.html --key ashford-ownership-proposal-v1
-python3 build_report.py       # Ashford ownership proposal.pdf
 python3 build_compos.py       # Ashford components by planner.xlsx + venn_compos.svg
+python3 build_pdf.py          # Ashford ownership proposal.pdf
 ```
+
+`build_pdf.py` junta las dos partes del informe en un solo documento:
+`build_report.py` (la propuesta) y `build_planner_report.py` (la ficha de cada
+planner). No son dos PDF pegados: comparten hoja de estilos y la numeración
+corre seguida de principio a fin.
 
 Lo que se entrega:
 
 | Fichero | Qué es |
 |---|---|
-| `Ashford ownership proposal.pdf` | El informe, en inglés: el reparto, las reglas para códigos nuevos, el Venn de los comprados y lo que queda abierto |
+| `Ashford ownership proposal.pdf` | El informe, en inglés, 23 páginas: el reparto, las reglas para códigos nuevos, el Venn de los comprados y una ficha por planner con su mapa |
 | `Ashford components by planner.xlsx` | Los 3.251 comprados, con su nivel y un 1/0 por planner |
 | `ashford_bom_graph_proposal.html` | El visor con el reparto ya puesto |
 | `venn_compos.svg` | El Venn suelto |
