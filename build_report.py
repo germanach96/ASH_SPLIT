@@ -1,18 +1,14 @@
 """Genera el informe en PDF de la propuesta de reparto.
 
-Uso:  python3 build_report.py
-
-Lee el xlsx limpio, machine_names.tsv y ownership_proposal.json, calcula todas
-las cifras y escribe:
-
-    Ashford ownership proposal.pdf
+Este modulo no se ejecuta solo: build_pdf.py junta su cuerpo con el de
+build_planner_report.py en un unico documento. Aqui vive la primera parte, la
+propuesta: el reparto, las reglas y los comprados.
 
 El informe va en ingles porque es para el equipo; el codigo y los comentarios
 siguen en castellano como el resto del repositorio.
 
-Nada del informe esta escrito a mano: las tablas y los recuentos salen del mismo
-reparto que se incrusta en el visor, asi que no pueden quedarse viejos. El PDF se
-imprime con el Chromium que ya trae el entorno.
+Nada esta escrito a mano: las tablas y los recuentos salen del mismo reparto que
+se incrusta en el visor, asi que no pueden quedarse viejos.
 """
 
 import html
@@ -26,8 +22,6 @@ import venn5
 XLSX = "Ashford split 2.xlsx"
 NOMBRES = "machine_names.tsv"
 REPARTO = "ownership_proposal.json"
-SALIDA = "Ashford ownership proposal.pdf"
-CHROMIUM = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"
 
 OWNERS = ["Sr planner 1", "Sr planner 2", "Jr planner 1", "Jr planner 2", "Intern"]
 COLOR = ["#7c3aed", "#db2777", "#65a30d", "#d97706", "#334155"]
@@ -152,6 +146,7 @@ th.n:last-child, td.n:last-child { padding-right: 0; }
 td.who { white-space: nowrap; }
 tr.tot td { font-weight: 600; border-top: .8pt solid #1a1d21; border-bottom: 0; }
 table.tight td, table.tight th { padding-top: 1mm; padding-bottom: 1mm; }
+table.keep { break-inside: avoid; }
 
 .chip {
   display: inline-block; padding: .5mm 1.8mm; border-radius: 1.5mm; color: #fff;
@@ -384,6 +379,51 @@ def construir(d):
       'they own; every number in an overlap is shared, and shared is what gets left unassigned. '
       'A zero means nobody has that exact combination.</p>')
 
+    # Lo mismo que dice el dibujo, en dos tablas: cuanto lleva cada uno y con
+    # quien se solapa mas.
+    w("<h3>What each planner carries</h3>")
+    w('<table class="keep"><tr><th>Planner</th><th class="n">Consumed</th><th class="n">Only theirs</th>'
+      '<th class="n">Shared</th><th class="n">Share</th><th>Shares most with</th></tr>')
+    for o in sorted(range(5), key=lambda o: -totales[o]):
+        mios = [c for c in comprados if todos_consumen[c] == {o}]
+        comp_o = totales[o] - len(mios)
+        pares = Counter()
+        for c in comprados:
+            if o in todos_consumen[c]:
+                for x in todos_consumen[c]:
+                    if x != o:
+                        pares[x] += 1
+        top = ", ".join(f"{OWNERS[x]} ({n})" for x, n in pares.most_common(2))
+        w(f'<tr><td class="who">{chip(o)} {OWNERS[o]}</td><td class="n">{totales[o]:,}</td>'
+          f'<td class="n">{len(mios):,}</td><td class="n">{comp_o}</td>'
+          f'<td class="n">{comp_o / totales[o] * 100:.0f} %</td>'
+          f'<td class="dim">{top}</td></tr>')
+    w("</table>")
+    w('<p class="note">Only theirs is what nobody else consumes, and it is exactly what they own. '
+      'Shared is everything sitting in an overlap of the diagram, and none of it gets an owner.</p>')
+
+    w("<h3>Codes shared by each pair</h3>")
+    w('<table class="tight keep"><tr><th>Planner</th>'
+      + "".join(f'<th class="n">{CORTO[x]}</th>' for x in range(5))
+      + '<th class="n">Shared</th></tr>')
+    for o in range(5):
+        celdas = []
+        for x in range(5):
+            if x == o:
+                celdas.append('<td class="n dim">&mdash;</td>')
+                continue
+            n = sum(1 for c in comprados if {o, x} <= todos_consumen[c])
+            peso = ' style="font-weight:600"' if n >= 100 else ""
+            celdas.append(f'<td class="n"{peso}>{n}</td>')
+        comp_o = totales[o] - sum(1 for c in comprados if todos_consumen[c] == {o})
+        w(f'<tr><td class="who">{chip(o)} {OWNERS[o]}</td>{"".join(celdas)}'
+          f'<td class="n dim">{comp_o}</td></tr>')
+    w("</table>")
+    w('<p class="note">Each cell is how many purchased codes both planners consume, whoever else '
+      'consumes them too, so a row adds up to more than its own shared total. <b>The two Sr '
+      'planners are the heaviest pair by far, at 218 codes.</b> The lightest coupling in the plant '
+      'is Jr planner 1 with the Intern, at 19.</p>')
+
     w("<h3>How many planners share each one</h3>")
     w('<table class="tight"><tr><th>Consumed by</th><th class="n">Codes</th><th>What they are</th></tr>')
     etiqueta = {2: "the normal case: two lines from different families use the same pack",
@@ -429,68 +469,4 @@ def construir(d):
       'fifth. The full list, with its level and a column per planner, is in '
       '<span class="mono">Ashford components by planner.xlsx</span>.</p>')
 
-    # ------------------------------------------------------------ abierto
-    w('<div class="page"></div><h2>What is still open</h2>')
-    w(f"""<h3>The 510 is split</h3>
-      <p>It is the only packing line with two owners. It comes from putting the 516 with
-      foundations: 6 codes run on both and follow the 516, which is the smaller one. On top of that
-      the bulks of the 516 feed the Kugler block far more than they feed foundations, so Sr planner
-      1 owns the line but schedules against bulks that Sr planner 2 largely drives. It is a known
-      cost, accepted in exchange for levelling the load between the two Sr planners.</p>
-
-      <h3>Kugler</h3>
-      <p>It is the largest packing block in the plant and it does not come apart without breaking
-      fluidity. While it stays whole, Sr planner 2 will carry more codes than anyone else. It is the
-      only real lever left if the load ever has to be rebalanced.</p>
-
-      <h3>Shared vessels</h3>
-      <p>{len(making) - enteros} of the {len(making)} vessels are touched by two or more planners.
-      That is not a problem with the split: a vessel serves several lines by design. What has to be
-      clear is that coordination in making is real, and that rules 3 and 4 only say who decides, not
-      who is the only one using it.</p>
-
-      <h3>How to adjust it</h3>
-      <p>The viewer (<span class="mono">ashford_bom_graph_proposal.html</span>) already carries the
-      split. The shape says what a code is and the colour says whose it is: a circle for an FG, a
-      diamond for a bulk, a triangle for a WIP and a square for a purchased code; hollow means
-      nobody holds it. Click a planner and the map keeps only their codes together with the
-      purchased ones they share with the rest. To move things: <b>Select related</b> picks up a
-      whole chain, the rectangle picks up an area, and <b>Assign to</b> reassigns it. Changes save
-      themselves in the browser.</p>""")
-
-    w('<div class="foot">Generated by <span class="mono">build_report.py</span> from '
-      '<span class="mono">Ashford split 2.xlsx</span> and '
-      '<span class="mono">ownership_proposal.json</span>. Every figure comes from the same split '
-      'the viewer carries.</div>')
-
-    return ("<!doctype html><meta charset=utf-8><title>Ashford ownership proposal</title>"
-            f"<style>{CSS}</style>" + "".join(W))
-
-
-def main():
-    d = cargar()
-    doc = construir(d)
-    tmp = "/tmp/_informe.html"
-    open(tmp, "w", encoding="utf-8").write(doc)
-
-    from playwright.sync_api import sync_playwright
-    with sync_playwright() as p:
-        b = p.chromium.launch(executable_path=CHROMIUM)
-        pg = b.new_page()
-        pg.goto("file://" + tmp)
-        pg.pdf(path=SALIDA, format="A4", print_background=True,
-               display_header_footer=True,
-               header_template="<div></div>",
-               footer_template='<div style="width:100%;font:8pt Helvetica,Arial;color:#9aa2aa;'
-                               'padding:0 15mm;display:flex;justify-content:space-between">'
-                               '<span>Ashford &middot; ownership proposal</span>'
-                               '<span class="pageNumber"></span></div>',
-               margin={"top": "17mm", "bottom": "17mm", "left": "0", "right": "0"})
-        b.close()
-
-    import os
-    print(f"{SALIDA} — {os.path.getsize(SALIDA) / 1024:.0f} KB")
-
-
-if __name__ == "__main__":
-    main()
+    return "".join(W)

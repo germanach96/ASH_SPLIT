@@ -74,8 +74,12 @@ def svg(cuentas, nombres, colores, totales=None, ancho=760):
     assert not faltan, f"regiones sin sitio en el dibujo: {faltan}"
 
     # Los nombres van fuera de las elipses, asi que el lienzo lleva un margen.
-    MARGEN = 0.20
+    # Ojo: px y py mueven un punto y por tanto llevan el margen dentro; una
+    # longitud (un radio) solo se escala. Mezclarlos dibujaba las elipses un 46 %
+    # mas grandes que las regiones sobre las que se colocan los numeros.
+    MARGEN = 0.17
     P = ancho / (1 + 2 * MARGEN)
+    def esc(v): return round(v * P, 1)
     def px(x): return round((x + MARGEN) * P, 1)
     def py(y): return round((1 - y + MARGEN) * P, 1)
 
@@ -84,7 +88,7 @@ def svg(cuentas, nombres, colores, totales=None, ancho=760):
 
     for k, (cx, cy, w, h, ang) in enumerate(ELIPSES):
         partes.append(
-            f'<ellipse cx="{px(cx)}" cy="{py(cy)}" rx="{px(w / 2)}" ry="{px(h / 2)}" '
+            f'<ellipse cx="{px(cx)}" cy="{py(cy)}" rx="{esc(w / 2)}" ry="{esc(h / 2)}" '
             f'transform="rotate({-ang} {px(cx)} {py(cy)})" '
             f'fill="{colores[k]}" fill-opacity="0.10" stroke="{colores[k]}" '
             f'stroke-width="1.6" stroke-opacity="0.85"/>')
@@ -105,13 +109,15 @@ def svg(cuentas, nombres, colores, totales=None, ancho=760):
             f'fill="{color}" stroke="#fff" stroke-width="3" paint-order="stroke" '
             f'text-anchor="middle" dominant-baseline="central">{n}</text>')
 
-    # Los nombres, en anillo alrededor del dibujo, cada uno en la direccion en
-    # la que su elipse se separa del centro.
-    for k, (cx, cy, w, h, ang) in enumerate(ELIPSES):
-        dx, dy = cx - 0.5, cy - 0.5
+    # Cada nombre justo por fuera de su propio petalo. El petalo es la region
+    # que solo toca a esa elipse, asi que se sale desde su numero hacia fuera y
+    # el nombre no puede quedar junto al petalo de otro.
+    for k in range(5):
+        ax, ay, _ = A[1 << k]
+        dx, dy = ax - 0.5, ay - 0.5
         n = np.hypot(dx, dy) or 1
-        ex, ey = 0.5 + dx / n * 0.60, 0.5 + dy / n * 0.60
-        anchor = "middle" if abs(ex - 0.5) < 0.12 else ("start" if ex > 0.5 else "end")
+        ex, ey = ax + dx / n * 0.24, ay + dy / n * 0.24
+        anchor = "middle" if abs(dx / n) < 0.35 else ("start" if dx > 0 else "end")
         etiqueta = nombres[k] if totales is None else f"{nombres[k]} · {totales[k]}"
         # Los dos nombres de los lados se salian del lienzo. Se mide el ancho a
         # ojo de buen cubero (0,55 em por letra en Helvetica) y se mete dentro.
@@ -121,8 +127,8 @@ def svg(cuentas, nombres, colores, totales=None, ancho=760):
         X += max(0, 3 - izq) - max(0, izq + ancho_txt - (ancho - 3))
         partes.append(
             f'<text x="{X:.1f}" y="{py(ey)}" font-size="{fs}" font-weight="600" '
-            f'fill="{colores[k]}" text-anchor="{anchor}" '
-            f'dominant-baseline="central">{etiqueta}</text>')
+            f'fill="{colores[k]}" stroke="#fff" stroke-width="3.5" paint-order="stroke" '
+            f'text-anchor="{anchor}" dominant-baseline="central">{etiqueta}</text>')
 
     partes.append("</svg>")
     return "".join(partes)
